@@ -15,6 +15,19 @@ Neste checkpoint, a aplicação é apenas uma API para consultar os dados da Pou
 npm install
 ```
 
+Copie o arquivo de exemplo e configure sua chave:
+
+```bash
+cp .env.example .env
+```
+
+```dotenv
+OPENAI_API_KEY=sua-chave
+OPENAI_MODEL=gpt-5.6-luna
+```
+
+O arquivo `.env` é local e não deve ser versionado.
+
 ## Executando o projeto
 
 Durante o desenvolvimento:
@@ -42,6 +55,7 @@ GET /health
 GET /guests
 GET /bedrooms
 GET /reservations
+POST /chat
 ```
 
 Exemplos com `curl`:
@@ -53,7 +67,21 @@ curl http://localhost:8000/bedrooms
 curl http://localhost:8000/reservations
 ```
 
+Para enviar uma mensagem ao modelo:
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Explique em uma frase o que é um LLM."}'
+```
+
 As reservas são armazenadas com `guestId` e `bedroomId`. Na resposta de `GET /reservations`, esses relacionamentos são populados com os dados completos do hóspede e do quarto.
+
+O arquivo `src/first-call.ts` preserva os experimentos da Aula 1 sobre contexto, tokens e ausência de memória entre requisições. Execute-o com:
+
+```bash
+npx tsx src/first-call.ts
+```
 
 ## Comandos
 
