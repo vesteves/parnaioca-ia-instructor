@@ -2,7 +2,7 @@
 
 Projeto inicial do curso **Agentes de IA com JavaScript**, da COTI Informática.
 
-Neste checkpoint, a aplicação é apenas uma API para consultar os dados da Pousada Parnaioca. Os arquivos JSON em `src/data` representam provisoriamente o banco de dados já populado.
+A aplicação disponibiliza os dados da Pousada Parnaioca e integra um modelo de linguagem para conversação e análise estruturada de avaliações. Os arquivos JSON em `src/data` representam provisoriamente o banco de dados já populado.
 
 ## Requisitos
 
@@ -56,6 +56,7 @@ GET /guests
 GET /bedrooms
 GET /reservations
 POST /chat
+POST /reviews/analyze
 ```
 
 Exemplos com `curl`:
@@ -73,6 +74,14 @@ Para enviar uma mensagem ao modelo:
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"message":"Explique em uma frase o que é um LLM."}'
+```
+
+Para analisar uma avaliação com saída estruturada:
+
+```bash
+curl -X POST http://localhost:8000/reviews/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"review":"O quarto estava limpo e a equipe foi excelente."}'
 ```
 
 As reservas são armazenadas com `guestId` e `bedroomId`. Na resposta de `GET /reservations`, esses relacionamentos são populados com os dados completos do hóspede e do quarto.
