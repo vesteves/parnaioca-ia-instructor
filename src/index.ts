@@ -11,6 +11,7 @@ import {
 } from './review.schema.js'
 import { chatSchema } from './chat.schema.js'
 import { bedrooms, getPopulatedReservations, guests } from './data/index.js'
+import { runAgent } from './tool-calling.js'
 
 const app = express()
 
@@ -61,29 +62,13 @@ app.post(
   '/chat',
   validationMiddleware(chatSchema),
   async (_req: Request, res: Response) => {
-    const response = await client.responses.create({
-      model,
-      instructions: `
-        Você é o assistente virtual da Pousada Parnaioca.
-
-        Responda sempre em português.
-
-        Responda somente a perguntas relacionadas à pousada,
-        hospedagem, reservas, quartos e serviços turísticos.
-
-        Quando uma pergunta depender de dados que não foram
-        fornecidos no contexto, diga claramente que não possui
-        acesso a essa informação.
-
-        Não invente informações sobre hóspedes, reservas,
-        quartos, preços, políticas ou serviços.
-      `,
-      input: res.locals.validation.message
-    })
+    const answer = await runAgent(
+      res.locals.validation.message
+    )
 
     res.json({
       message: 'Resposta gerada com sucesso',
-      data: response.output_text
+      data: answer
     })
   })
 
