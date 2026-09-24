@@ -1,6 +1,16 @@
 import 'dotenv/config'
 import OpenAI from 'openai'
-import { guests, reservations } from './data/index.js'
+import {
+  toResponseInputItems
+} from 'openai/lib/responses/ResponseInputItems'
+import { bedrooms, guests, reservations } from './data/index.js'
+import {
+  AuthContext,
+  UserRole
+} from './auth.middleware.js'
+import {
+  requestReservationCancellation
+} from './approval.store.js'
 
 const apiKey = process.env.OPENAI_API_KEY
 
@@ -30,8 +40,52 @@ function findReservationsByGuestId(guestId: string) {
   )
 }
 
+function getBedroomById(bedroomId: string) {
+  console.log('FUNÇÃO getBedroomById EXECUTADA')
+
+  return bedrooms.find(
+    bedroom => bedroom.id === bedroomId
+  )
+}
+
+type ToolName =
+  | 'findGuest'
+  | 'findReservationsByGuestId'
+  | 'getBedroomById'
+  | 'requestReservationCancellation'
+
+const toolPermissions: Record<UserRole, ToolName[]> = {
+  guest: [
+    'getBedroomById'
+  ],
+
+  employee: [
+    'findGuest',
+    'findReservationsByGuestId',
+    'getBedroomById',
+    'requestReservationCancellation'
+  ],
+
+  manager: [
+    'findGuest',
+    'findReservationsByGuestId',
+    'getBedroomById',
+    'requestReservationCancellation'
+  ]
+}
+
+function isToolAllowed(
+  role: UserRole,
+  toolName: string
+): toolName is ToolName {
+  return toolPermissions[role].includes(
+    toolName as ToolName
+  )
+}
+
 type ToolHandler = (
-  argumentsData: Record<string, unknown>
+  argumentsData: Record<string, unknown>,
+  auth: AuthContext
 ) => unknown
 
 const toolHandlers: Record<string, ToolHandler> = {
@@ -49,11 +103,52 @@ const toolHandlers: Record<string, ToolHandler> = {
     }
 
     return findReservationsByGuestId(argumentsData.guestId)
+  },
+
+  getBedroomById: argumentsData => {
+    if (typeof argumentsData.bedroomId !== 'string') {
+      throw new Error('O argumento bedroomId é obrigatório')
+    }
+
+    return getBedroomById(argumentsData.bedroomId)
+  },
+
+  requestReservationCancellation: (
+    argumentsData,
+    auth
+  ) => {
+    if (
+      typeof argumentsData.reservationId !== 'string'
+    ) {
+      throw new Error(
+        'O argumento reservationId é obrigatório'
+      )
+    }
+
+    const approval = requestReservationCancellation(
+      argumentsData.reservationId,
+      auth.userId
+    )
+
+    return {
+      message:
+        'Cancelamento aguardando aprovação humana',
+      approval
+    }
   }
 }
 
-function executeTool(name: string, argumentsJson: string) {
+function executeTool(
+  name: string,
+  argumentsJson: string,
+  auth: AuthContext
+) {
   try {
+    if (!isToolAllowed(auth.role, name)) {
+      return {
+        error: `O perfil ${auth.role} não está autorizado a executar ${name}`
+      }
+    }
     const handler = toolHandlers[name]
 
     if (!handler) {
@@ -67,7 +162,7 @@ function executeTool(name: string, argumentsJson: string) {
       unknown
     >
 
-    return handler(argumentsData)
+    return handler(argumentsData, auth)
   } catch (error) {
     return {
       error:
@@ -112,14 +207,89 @@ const tools: OpenAI.Responses.Tool[] = [
       additionalProperties: false
     },
     strict: true
+  },
+  {
+    type: 'function',
+    name: 'getBedroomById',
+    description: `
+      Consulta os dados completos de um quarto pelo ID.
+      Use quando precisar apresentar nome, descrição,
+      capacidade, preço ou comodidades do quarto.
+    `,
+    parameters: {
+      type: 'object',
+      properties: {
+        bedroomId: {
+          type: 'string',
+          description: 'ID do quarto, como bedroom-008'
+        }
+      },
+      required: ['bedroomId'],
+      additionalProperties: false
+    },
+    strict: true
+  },
+
+  {
+    type: 'function',
+    name: 'requestReservationCancellation',
+    description: `
+    Solicita o cancelamento de uma reserva.
+
+    Esta ferramenta não cancela a reserva imediatamente.
+    Ela cria uma solicitação pendente que precisa ser
+    aprovada por um gerente.
+
+    Informe ao usuário o ID da aprovação retornada.
+  `,
+    parameters: {
+      type: 'object',
+      properties: {
+        reservationId: {
+          type: 'string',
+          description: 'ID da reserva que será cancelada'
+        }
+      },
+      required: ['reservationId'],
+      additionalProperties: false
+    },
+    strict: true
   }
 ]
+
+function getToolsForRole(
+  role: UserRole
+): OpenAI.Responses.Tool[] {
+  return tools.filter(tool => {
+    if (tool.type !== 'function') {
+      return false
+    }
+
+    return isToolAllowed(role, tool.name)
+  })
+}
 
 const MAX_ROUNDS = 5
 const MAX_TOOL_CALLS = 10
 
-export async function runAgent(question: string): Promise<string> {
+const conversations = new Map<
+  string,
+  OpenAI.Responses.ResponseInput
+>()
+
+export async function runAgent(
+  question: string,
+  conversationId: string,
+  auth: AuthContext
+): Promise<string> {
+  const conversationKey =
+    `${auth.userId}:${conversationId}`
+
+  const previousInput =
+    conversations.get(conversationKey) ?? []
+
   const input: OpenAI.Responses.ResponseInput = [
+    ...previousInput,
     {
       role: 'user',
       content: question
@@ -145,17 +315,16 @@ export async function runAgent(question: string): Promise<string> {
         Não invente informações sobre hóspedes ou reservas.
       `,
       input,
-      tools
+      tools: getToolsForRole(auth.role)
     })
+
+    input.push(
+      ...toResponseInputItems(response.output)
+    )
 
     let hasFunctionCall = false
 
     for (const item of response.output) {
-      if (item.type === 'reasoning') {
-        input.push(item)
-        continue
-      }
-
       if (item.type !== 'function_call') {
         continue
       }
@@ -169,8 +338,6 @@ export async function runAgent(question: string): Promise<string> {
         )
       }
 
-      input.push(item)
-
       console.log('TOOL CALL', {
         name: item.name,
         arguments: JSON.parse(item.arguments)
@@ -178,7 +345,8 @@ export async function runAgent(question: string): Promise<string> {
 
       const toolResult = executeTool(
         item.name,
-        item.arguments
+        item.arguments,
+        auth,
       )
 
       console.log('TOOL RESULT', toolResult)
@@ -191,6 +359,8 @@ export async function runAgent(question: string): Promise<string> {
     }
 
     if (!hasFunctionCall) {
+      conversations.set(conversationKey, input)
+
       return response.output_text
     }
   }

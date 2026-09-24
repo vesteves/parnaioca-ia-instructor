@@ -12,6 +12,10 @@ import {
 import { chatSchema } from './chat.schema.js'
 import { bedrooms, getPopulatedReservations, guests } from './data/index.js'
 import { runAgent } from './tool-calling.js'
+import { authMiddleware } from './auth.middleware.js'
+import {
+  decideCancellation
+} from './approval.store.js'
 
 const app = express()
 
@@ -60,10 +64,13 @@ app.get('/reservations', (_req: Request, res: Response) => {
 
 app.post(
   '/chat',
+  authMiddleware,
   validationMiddleware(chatSchema),
   async (_req: Request, res: Response) => {
     const answer = await runAgent(
-      res.locals.validation.message
+      res.locals.validation.message,
+      res.locals.validation.conversationId,
+      res.locals.auth
     )
 
     res.json({
@@ -139,6 +146,60 @@ app.post(
       data: response.output_parsed
     })
   })
+
+app.post(
+  '/approvals/:approvalId',
+  authMiddleware,
+  (req: Request, res: Response) => {
+    const auth = res.locals.auth
+
+    if (auth.role !== 'manager') {
+      res.status(403).json({
+        message:
+          'Somente um gerente pode decidir esta solicitação',
+        data: null
+      })
+
+      return
+    }
+
+    const decision = req.body.decision
+
+    if (
+      decision !== 'approved' &&
+      decision !== 'rejected'
+    ) {
+      res.status(400).json({
+        message:
+          'A decisão deve ser approved ou rejected',
+        data: null
+      })
+
+      return
+    }
+
+    try {
+      const result = decideCancellation(
+        req.params.approvalId as string,
+        decision,
+        auth.userId
+      )
+
+      res.json({
+        message: `Cancelamento ${decision}`,
+        data: result
+      })
+    } catch (error) {
+      res.status(400).json({
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Erro ao processar aprovação',
+        data: null
+      })
+    }
+  }
+)
 
 app.listen(port, () => {
   console.log(`Servidor ON! http://localhost:${port}`)
