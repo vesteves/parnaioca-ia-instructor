@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "rag:ingest": "tsx src/rag/ingest-documents.ts",
+    "rag:search": "tsx src/rag/search-documents.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "prod": "node dist/index.js"
