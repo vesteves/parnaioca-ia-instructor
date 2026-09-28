@@ -9,8 +9,8 @@ As tags `aula-01-*` até `aula-05-inicio` foram criadas antes deste realinhament
 | Encontro real | Situação | Conteúdo principal |
 | --- | --- | --- |
 | Aulas 01 a 05 | Realizadas | LLMs, prompts, structured output, tools, agent loop, dados e histórico |
-| Aula 06 | Próxima | Segurança, autorização, aprovação humana e pipeline inicial de RAG |
-| Aula 07 | Planejada | RAG integrado ao agente, MCP, frameworks e arquitetura final |
+| Aula 06 | Concluída | Segurança, autorização, aprovação humana e pipeline inicial de RAG |
+| Aula 07 | Concluída | RAG integrado, MCP local e HTTP, frameworks, APIs, banco em memória e arquitetura final |
 
 ## Convenção daqui para frente
 

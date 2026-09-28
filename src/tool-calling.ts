@@ -12,7 +12,21 @@ import {
   requestReservationCancellation
 } from './approval.store.js'
 
-const apiKey = process.env.OPENAI_API_KEY
+function getRequiredEnvironmentVariable(
+  name: string
+): string {
+  const value = process.env[name]
+
+  if (!value) {
+    throw new Error(
+      `${name} não foi configurada`
+    )
+  }
+
+  return value
+}
+
+const apiKey = getRequiredEnvironmentVariable('OPENAI_API_KEY')
 
 if (!apiKey) {
   throw new Error('OPENAI_API_KEY não foi configurada')
@@ -23,6 +37,24 @@ const client = new OpenAI({
 })
 
 const model = process.env.OPENAI_MODEL || 'gpt-5.6-luna'
+
+const publicVectorStoreId =
+  getRequiredEnvironmentVariable('OPENAI_PUBLIC_VECTOR_STORE_ID')
+
+const internalVectorStoreId =
+  getRequiredEnvironmentVariable('OPENAI_INTERNAL_VECTOR_STORE_ID')
+
+if (!publicVectorStoreId) {
+  throw new Error(
+    'OPENAI_PUBLIC_VECTOR_STORE_ID não foi configurado'
+  )
+}
+
+if (!internalVectorStoreId) {
+  throw new Error(
+    'OPENAI_INTERNAL_VECTOR_STORE_ID não foi configurado'
+  )
+}
 
 function findGuest(name: string) {
   console.log('FUNÇÃO findGuest EXECUTADA')
@@ -173,7 +205,7 @@ function executeTool(
   }
 }
 
-const tools: OpenAI.Responses.Tool[] = [
+const functionTools: OpenAI.Responses.Tool[] = [
   {
     type: 'function',
     name: 'findGuest',
@@ -257,16 +289,45 @@ const tools: OpenAI.Responses.Tool[] = [
   }
 ]
 
+function getVectorStoreIdsForRole(
+  role: UserRole
+): string[] {
+  if (role === 'guest') {
+    return [
+      publicVectorStoreId
+    ]
+  }
+
+  return [
+    publicVectorStoreId,
+    internalVectorStoreId
+  ]
+}
+
 function getToolsForRole(
   role: UserRole
 ): OpenAI.Responses.Tool[] {
-  return tools.filter(tool => {
-    if (tool.type !== 'function') {
-      return false
-    }
+  const allowedFunctionTools =
+    functionTools.filter(tool => {
+      if (tool.type !== 'function') {
+        return false
+      }
 
-    return isToolAllowed(role, tool.name)
-  })
+      return isToolAllowed(role, tool.name)
+    })
+
+  const fileSearchTool:
+    OpenAI.Responses.FileSearchTool = {
+    type: 'file_search',
+    vector_store_ids:
+      getVectorStoreIdsForRole(role),
+    max_num_results: 3
+  }
+
+  return [
+    ...allowedFunctionTools,
+    fileSearchTool
+  ]
 }
 
 const MAX_ROUNDS = 5
@@ -309,13 +370,24 @@ export async function runAgent(
       instructions: `
         Você é o assistente da Pousada Parnaioca.
 
-        Use as ferramentas disponíveis quando precisar consultar
-        dados da pousada.
+        Use as function tools quando precisar consultar dados
+        estruturados, como hóspedes, reservas e quartos.
 
-        Não invente informações sobre hóspedes ou reservas.
+        Use file_search quando precisar consultar políticas,
+        regras, passeios, perguntas frequentes ou procedimentos
+        documentados da pousada.
+
+        Não invente informações sobre hóspedes, reservas,
+        políticas ou procedimentos.
+
+        Quando os documentos não contiverem a informação,
+        diga que ela não foi encontrada.
       `,
       input,
-      tools: getToolsForRole(auth.role)
+      tools: getToolsForRole(auth.role),
+      include: [
+        'file_search_call.results'
+      ]
     })
 
     input.push(
@@ -325,6 +397,20 @@ export async function runAgent(
     let hasFunctionCall = false
 
     for (const item of response.output) {
+      if (item.type === 'file_search_call') {
+        console.log('FILE SEARCH', {
+          queries: item.queries,
+
+          results: item.results?.map(result => ({
+            filename: result.filename,
+            score: result.score,
+            text: result.text
+          }))
+        })
+
+        continue
+      }
+
       if (item.type !== 'function_call') {
         continue
       }
