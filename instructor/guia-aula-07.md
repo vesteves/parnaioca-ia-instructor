@@ -44,6 +44,27 @@ Para caber nas duas horas técnicas:
 | Tool consumindo uma API REST | [DEMONSTRAR] |
 | Tool consultando SQLite em memória | [DEMONSTRAR] |
 
+## Atalhos para as demonstrações finais
+
+Os exemplos finais ficam perto do encerramento deste guia. Use estes atalhos
+para encontrá-los rapidamente:
+
+| Demonstração | Arquivo | Seção do guia | Comando |
+| --- | --- | --- | --- |
+| Framework de agentes | `src/frameworks/agents-sdk.ts` | Bloco 10 | `npm run framework:agents` |
+| Tools consumindo API REST | `src/examples/api-tools.ts` | Bloco 11 | `npm run example:api` |
+| Tools consultando banco | `src/examples/database-tools.ts` | Bloco 12 | `npm run example:database` |
+
+Ordem sugerida para o fechamento:
+
+```text
+Agents SDK
+  -> API Tools
+  -> Database Tools
+  -> chatbot x workflow x agente
+  -> arquitetura completa
+```
+
 ---
 
 # Primeira hora - Interação e mercado
@@ -1055,7 +1076,7 @@ aplicação real, a implementação da tool também pode chamar uma API externa.
 O exemplo está em:
 
 ```text
-src/examples/api-tool.ts
+src/examples/api-tools.ts
 ```
 
 ## Função usada como corpo de uma tool
@@ -1159,7 +1180,7 @@ const database = new DatabaseSync(':memory:')
 O arquivo completo está em:
 
 ```text
-src/examples/database-tool.ts
+src/examples/database-tools.ts
 ```
 
 ## O que o arquivo faz

@@ -15,8 +15,8 @@
     "mcp:http-client": "tsx src/mcp/http-client.ts",
     "mcp:agent": "tsx src/mcp/agent.ts",
     "framework:agents": "tsx src/frameworks/agents-sdk.ts",
-    "example:api": "tsx src/examples/api-tool.ts",
-    "example:database": "tsx src/examples/database-tool.ts",
+    "example:api": "tsx src/examples/api-tools.ts",
+    "example:database": "tsx src/examples/database-tools.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "prod": "node dist/index.js"
