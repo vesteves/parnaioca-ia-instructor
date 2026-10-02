@@ -1,0 +1,1456 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Guia do professor da Aula 6: Introdução ao RAG, embeddings e retrieval.">
+  <title>Aula 6 — Introdução ao RAG, embeddings e retrieval</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #072f58;
+      --blue: #075ba6;
+      --blue-2: #1382d2;
+      --cyan: #27b9d6;
+      --paper: #f3f7fb;
+      --surface: #ffffff;
+      --surface-2: #f7faff;
+      --ink: #172334;
+      --muted: #5d6b7c;
+      --line: #d8e3ee;
+      --code: #0b1726;
+      --code-bar: #12263c;
+      --code-ink: #e9f2fb;
+      --success: #11734b;
+      --success-bg: #eaf7f0;
+      --warning: #966000;
+      --warning-bg: #fff7e5;
+      --shadow: 0 14px 36px rgba(7, 47, 88, .09);
+      --sidebar: 330px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --paper: #08111d;
+      --surface: #0e1a29;
+      --surface-2: #122235;
+      --ink: #e8f0f8;
+      --muted: #a9b8c8;
+      --line: #26394d;
+      --code: #050b12;
+      --code-bar: #0a1522;
+      --success-bg: #102a22;
+      --warning-bg: #30240f;
+      --shadow: 0 14px 36px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 86px; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 400 15.5px/1.72 Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    a { color: var(--blue); }
+
+    .progress {
+      position: fixed;
+      inset: 0 auto auto 0;
+      z-index: 100;
+      width: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), #5aa8ff);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: 64px;
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+    .topbar-inner {
+      max-width: 1540px;
+      height: 100%;
+      margin: 0 auto;
+      padding: 0 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: white;
+      background: linear-gradient(145deg, var(--navy), var(--blue-2));
+      font-weight: 800;
+      letter-spacing: -.04em;
+      box-shadow: 0 5px 12px rgba(7, 91, 166, .25);
+    }
+    .brand-text { min-width: 0; line-height: 1.2; }
+    .brand-text strong { display: block; color: var(--navy); }
+    [data-theme="dark"] .brand-text strong { color: #a8d8ff; }
+    .brand-text span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .icon-button:hover { background: var(--surface-2); }
+    .menu-button { display: none; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: white;
+      background:
+        radial-gradient(circle at 84% 24%, rgba(39, 185, 214, .34), transparent 24%),
+        linear-gradient(125deg, #062b50 0%, #075b9f 68%, #0f79be 100%);
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      right: -230px;
+      bottom: -360px;
+      border: 70px solid rgba(255, 255, 255, .07);
+      border-radius: 50%;
+    }
+    .hero-inner {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 42px 24px 68px;
+      position: relative;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 11px;
+      border: 1px solid rgba(255, 255, 255, .28);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .1);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      max-width: 940px;
+      margin: 16px 0 10px;
+      font-size: clamp(30px, 4vw, 54px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    .hero p { max-width: 860px; margin: 0; color: #dceeff; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+    .chip {
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .13);
+      border: 1px solid rgba(255, 255, 255, .17);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .quickbar {
+      max-width: 1540px;
+      margin: -27px auto 0;
+      padding: 0 24px;
+      position: relative;
+      z-index: 3;
+    }
+    .quickbar-inner {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      scrollbar-width: thin;
+    }
+    .quick-link {
+      flex: none;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--ink);
+      background: var(--surface-2);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .quick-link:hover { color: var(--blue); border-color: var(--blue-2); }
+
+    .shell {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(0, 1fr);
+      gap: 26px;
+      align-items: start;
+    }
+    .sidebar {
+      position: sticky;
+      top: 82px;
+      max-height: calc(100vh - 102px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .sidebar-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+    .sidebar-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    [data-theme="dark"] .sidebar-title { color: #a8d8ff; }
+    .shortcut { color: var(--muted); font-size: 10px; letter-spacing: 0; }
+    .search {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      outline: none;
+      color: var(--ink);
+      background: var(--surface-2);
+      font-size: 13px;
+    }
+    .search:focus { border-color: var(--blue-2); box-shadow: 0 0 0 3px rgba(19, 130, 210, .12); }
+    .nav { overflow-y: auto; padding: 10px; scrollbar-width: thin; }
+    .nav-group { margin: 2px 0 6px; }
+    .nav-group summary {
+      list-style: none;
+      cursor: pointer;
+      border-radius: 9px;
+    }
+    .nav-group summary::-webkit-details-marker { display: none; }
+    .nav-main {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 9px;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 12.5px;
+      font-weight: 720;
+      line-height: 1.35;
+    }
+    .nav-sub {
+      display: block;
+      margin-left: 12px;
+      padding: 6px 9px 6px 14px;
+      border-left: 1px solid var(--line);
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 11.5px;
+      line-height: 1.35;
+    }
+    .nav a:hover { color: var(--blue); background: var(--surface-2); }
+    .nav a.active {
+      color: var(--blue);
+      background: color-mix(in srgb, var(--blue) 10%, var(--surface));
+      box-shadow: inset 3px 0 0 var(--blue-2);
+    }
+    .nav-empty { padding: 14px; color: var(--muted); font-size: 12px; text-align: center; }
+
+    main {
+      min-width: 0;
+      padding: clamp(24px, 4vw, 56px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    main > h1:first-child { display: none; }
+    main h1, main h2, main h3, main h4 { scroll-margin-top: 86px; }
+    main h1 {
+      margin: 68px 0 22px;
+      padding: 18px 20px;
+      border-radius: 13px;
+      color: white;
+      background: linear-gradient(125deg, var(--navy), var(--blue));
+      font-size: clamp(23px, 3vw, 31px);
+      line-height: 1.25;
+      letter-spacing: -.025em;
+    }
+    main h1:nth-of-type(2) { margin-top: 0; }
+    main h2 {
+      margin: 42px 0 14px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--line);
+      color: var(--navy);
+      font-size: 21px;
+      line-height: 1.3;
+    }
+    [data-theme="dark"] main h2 { color: #a8d8ff; }
+    main h3 { margin: 30px 0 11px; font-size: 17px; color: var(--blue); }
+    main h4 { margin: 24px 0 8px; font-size: 15px; }
+    main p { margin: 0 0 15px; }
+    main ul, main ol { margin: 0 0 18px; padding-left: 24px; }
+    main li { margin: 5px 0; }
+    main strong { color: color-mix(in srgb, var(--ink) 88%, var(--blue)); }
+    main blockquote {
+      margin: 20px 0;
+      padding: 16px 19px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue-2);
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--ink);
+    }
+    main blockquote p:last-child { margin-bottom: 0; }
+    main hr { margin: 48px 0; border: 0; border-top: 1px solid var(--line); }
+    main :not(pre) > code {
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      color: var(--blue);
+      background: var(--surface-2);
+      font: 500 .88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .table-wrap { max-width: 100%; overflow-x: auto; margin: 18px 0 24px; }
+    main table { width: 100%; border-collapse: collapse; min-width: 560px; font-size: 13px; }
+    main th, main td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    main th { color: var(--navy); background: var(--surface-2); }
+    [data-theme="dark"] main th { color: #a8d8ff; }
+
+    .code-block {
+      margin: 18px 0 23px;
+      overflow: hidden;
+      border: 1px solid #21374d;
+      border-radius: 12px;
+      background: var(--code);
+      box-shadow: 0 7px 18px rgba(4, 16, 29, .18);
+    }
+    .code-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 10px 7px 15px;
+      color: #9fb6cb;
+      background: var(--code-bar);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    .code-lang::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: #3ea6ff;
+    }
+    .copy-button {
+      padding: 4px 9px;
+      border: 1px solid #34516c;
+      border-radius: 6px;
+      color: #d7e8f8;
+      background: transparent;
+      cursor: pointer;
+      font-size: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .copy-button:hover { background: #1a334c; }
+    .code-block pre { margin: 0; padding: 17px 19px; overflow-x: auto; }
+    .code-block code {
+      color: var(--code-ink);
+      font: 400 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      tab-size: 2;
+    }
+
+    .back-top {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 20;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 12px;
+      color: white;
+      background: var(--blue);
+      box-shadow: 0 8px 22px rgba(7, 91, 166, .28);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: .2s ease;
+    }
+    .back-top.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .overlay { display: none; }
+
+    footer {
+      padding: 25px;
+      color: #c7d7e7;
+      background: var(--navy);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      :root { --sidebar: 320px; }
+      .menu-button { display: grid; }
+      .shell { display: block; }
+      .sidebar {
+        position: fixed;
+        inset: 64px auto 0 0;
+        z-index: 45;
+        width: min(88vw, var(--sidebar));
+        max-height: none;
+        border-radius: 0 16px 16px 0;
+        transform: translateX(-105%);
+        transition: transform .23s ease;
+      }
+      body.menu-open .sidebar { transform: translateX(0); }
+      .overlay {
+        position: fixed;
+        inset: 64px 0 0;
+        z-index: 40;
+        background: rgba(2, 10, 19, .48);
+      }
+      body.menu-open .overlay { display: block; }
+    }
+
+    @media (max-width: 600px) {
+      .topbar-inner, .hero-inner, .quickbar, .shell { padding-left: 14px; padding-right: 14px; }
+      .brand-text span { display: none; }
+      .hero-inner { padding-top: 30px; padding-bottom: 54px; }
+      .hero h1 { font-size: 31px; }
+      main { padding: 22px 16px 38px; border-radius: 14px; }
+      main h1 { margin-left: -4px; margin-right: -4px; padding: 15px; font-size: 22px; }
+      main h2 { font-size: 19px; }
+      .back-top { right: 14px; bottom: 14px; }
+    }
+
+    @media print {
+      @page { margin: 14mm; }
+      body { background: white; font-size: 10.5pt; }
+      .progress, .topbar, .quickbar, .sidebar, .overlay, .back-top, .copy-button { display: none !important; }
+      .hero { color: #111; background: white; }
+      .hero-inner { max-width: none; padding: 0 0 18px; }
+      .hero p { color: #333; }
+      .eyebrow, .chip { color: #111; border-color: #aaa; background: white; }
+      .shell { display: block; max-width: none; padding: 0; }
+      main { padding: 0; border: 0; box-shadow: none; }
+      main h1 { color: #111; background: #eaf2f9; break-after: avoid; }
+      main h2, main h3 { break-after: avoid; }
+      .code-block, table, blockquote { break-inside: avoid; }
+      .code-block pre { white-space: pre-wrap; }
+      footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button class="icon-button menu-button" id="menu-button" aria-label="Abrir menu">☰</button>
+        <div class="brand-mark">C</div>
+        <div class="brand-text">
+          <strong>COTI Informática</strong>
+          <span>Agentes de IA com JavaScript · Guia do professor</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" id="theme-button" title="Alternar tema" aria-label="Alternar tema">◐</button>
+        <button class="icon-button" onclick="window.print()" title="Imprimir" aria-label="Imprimir">⎙</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Aula 06 · guia do professor</span>
+      <h1>Introdução ao RAG, embeddings e retrieval</h1>
+      <p>Documentos, chunks, embeddings, vector stores e busca semântica. Material navegável com conceitos, código, testes, perguntas e respostas esperadas.</p>
+      <div class="chips">
+        <span class="chip">RAG</span>
+        <span class="chip">Chunks</span>
+        <span class="chip">Embeddings</span>
+        <span class="chip">Retrieval</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="quickbar">
+    <nav class="quickbar-inner" id="quick-links" aria-label="Atalhos principais"></nav>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="sidebar-title">
+          <span>Tópicos da aula</span>
+          <span class="shortcut">pressione /</span>
+        </div>
+        <input class="search" id="search" type="search" placeholder="Buscar tópico..." autocomplete="off">
+      </div>
+      <nav class="nav" id="nav" aria-label="Menu da aula"></nav>
+    </aside>
+
+    <main id="content">
+      <h1>Aula 6 - Introdução ao RAG, embeddings e retrieval</h1>
+<p>Esta aula prepara o agente para consultar conhecimento privado. Os documentos da pousada são classificados, enviados, divididos em chunks, transformados em embeddings, indexados e recuperados por busca semântica.</p>
+<h2>Objetivos da aula</h2>
+<ul>
+<li>explicar o problema resolvido pelo RAG;</li>
+<li>diferenciar chunks, embeddings e documentos originais;</li>
+<li>compreender busca semântica e retrieval;</li>
+<li>criar bases pública e interna;</li>
+<li>executar o pipeline de ingestão;</li>
+<li>discutir custos, atualização, exclusão e o lugar de bancos vetoriais reais.</li>
+</ul>
+<h2>Preparação do professor</h2>
+<p>Antes da aula:</p>
+<pre><code class="language-bash">git switch main
+npm install
+npm run typecheck
+</code></pre>
+<p>Confira os cinco documentos:</p>
+<pre><code class="language-text">docs/cancelamento.pdf
+docs/politica-hospedagem.pdf
+docs/manual-funcionarios.pdf
+docs/passeios.pdf
+docs/faq.pdf
+</code></pre>
+<p>O <code>.env</code> deve começar com:</p>
+<pre><code class="language-dotenv">OPENAI_API_KEY=sua-chave
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_PUBLIC_VECTOR_STORE_ID=
+OPENAI_INTERNAL_VECTOR_STORE_ID=
+</code></pre>
+<p>Não execute repetidamente <code>npm run rag:ingest</code>: cada execução envia novamente os arquivos e cria novos vector stores.</p>
+<hr>
+<h1>Bloco 5 - O problema que o RAG resolve</h1>
+<p><strong>Tempo:</strong> 15 minutos<br><strong>Formato:</strong> [EXPLICAR] e experimentar</p>
+<p>Faça uma pergunta sem enviar documentos:</p>
+<pre><code class="language-text">Segundo a política da Pousada Parnaioca, qual é a multa para um cancelamento feito perto do check-in?
+</code></pre>
+<p>O modelo pode:</p>
+<ul>
+<li>admitir que não sabe;</li>
+<li>responder genericamente;</li>
+<li>inventar uma regra plausível.</li>
+</ul>
+<p>Mostre que os PDFs estão no projeto, mas não foram automaticamente enviados ao modelo.</p>
+<pre><code class="language-text">docs/
+  cancelamento.pdf
+  politica-hospedagem.pdf
+  manual-funcionarios.pdf
+  passeios.pdf
+  faq.pdf
+</code></pre>
+<p>Escreva o pipeline:</p>
+<pre><code class="language-text">Documentos
+  -&gt; extração do texto
+  -&gt; chunks
+  -&gt; embeddings
+  -&gt; armazenamento vetorial
+  -&gt; busca semântica
+  -&gt; trechos relevantes
+  -&gt; modelo
+</code></pre>
+<h2>Conceitos essenciais</h2>
+<p><strong>Chunk:</strong> parte menor de um documento.<br><strong>Embedding:</strong> representação numérica do significado de um texto.<br><strong>Vector store:</strong> armazenamento preparado para comparar embeddings.<br><strong>Busca semântica:</strong> busca por proximidade de significado.<br><strong>Retrieval:</strong> recuperação dos trechos relevantes.<br><strong>RAG:</strong> geração da resposta usando o contexto recuperado.</p>
+<h2>Diferença entre chunks e embeddings</h2>
+<p>Esta distinção deve ser explicada explicitamente:</p>
+<pre><code class="language-text">Chunk é texto.
+Embedding é a representação numérica do significado desse texto.
+</code></pre>
+<p>Suponha que <code>cancelamento.pdf</code> contenha:</p>
+<pre><code class="language-text">Cancelamentos realizados com pelo menos 15 dias de antecedência
+recebem reembolso integral.
+
+Entre 7 e 14 dias antes do check-in, será retido 30% do valor.
+
+Com menos de 7 dias, será retido 50% do valor.
+</code></pre>
+<p>O processamento pode criar:</p>
+<pre><code class="language-text">CHUNK 1
+Cancelamentos realizados com pelo menos 15 dias de antecedência
+recebem reembolso integral.
+</code></pre>
+<pre><code class="language-text">CHUNK 2
+Entre 7 e 14 dias antes do check-in, será retido 30% do valor.
+Com menos de 7 dias, será retido 50% do valor.
+</code></pre>
+<p>Os chunks continuam sendo textos legíveis. Cada um recebe um embedding, que conceitualmente se parece com:</p>
+<pre><code class="language-typescript">[
+  0.021,
+  -0.734,
+  0.184,
+  0.092
+  // muitas outras dimensões
+]
+</code></pre>
+<p>Esses números são apenas ilustrativos. Um embedding real possui muitas dimensões.</p>
+<p>O embedding não é:</p>
+<ul>
+<li>um resumo;</li>
+<li>uma resposta do modelo;</li>
+<li>uma versão criptografada do chunk;</li>
+<li>um texto que será mostrado ao usuário.</li>
+</ul>
+<p>Na ingestão:</p>
+<pre><code class="language-text">Documento
+  -&gt; chunks de texto
+  -&gt; um embedding para cada chunk
+  -&gt; chunks e vetores armazenados
+</code></pre>
+<p>Na busca:</p>
+<pre><code class="language-text">Pergunta do usuário
+  -&gt; embedding da pergunta
+  -&gt; comparação com os embeddings dos chunks
+  -&gt; chunks mais próximos
+  -&gt; textos originais dos chunks
+  -&gt; LLM
+</code></pre>
+<p>Exemplo:</p>
+<pre><code class="language-text">Pergunta:
+&quot;Vou desistir da viagem faltando cinco dias. Quanto perco?&quot;
+</code></pre>
+<p>Mesmo sem repetir literalmente a palavra <code>cancelamento</code>, seu embedding pode ficar próximo do embedding deste chunk:</p>
+<pre><code class="language-text">Com menos de 7 dias, será retido 50% do valor.
+</code></pre>
+<p>O sistema usa os embeddings para localizar o conteúdo, mas devolve o texto original do chunk. O LLM recebe o texto recuperado, não a lista de números.</p>
+<p>Escreva no quadro:</p>
+<pre><code class="language-text">Embedding encontra o conteúdo.
+Chunk fornece o conteúdo.
+LLM interpreta e responde.
+</code></pre>
+<p>Analogia:</p>
+<ul>
+<li>documento: livro completo;</li>
+<li>chunk: trecho ou página do livro;</li>
+<li>embedding: coordenada do trecho em um mapa de significados;</li>
+<li>pergunta: outra coordenada;</li>
+<li>busca vetorial: procura os trechos mais próximos da pergunta.</li>
+</ul>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>Por que não enviar os cinco PDFs inteiros em toda pergunta?</li>
+<li>Um embedding contém a resposta escrita em texto?</li>
+<li>Busca semântica é igual a procurar uma palavra com <code>includes()</code>?</li>
+<li>O RAG treina novamente o modelo?</li>
+<li>Se nenhum trecho relevante for recuperado, o agente deveria inventar?</li>
+<li>O que efetivamente é enviado ao LLM depois da busca: embedding ou chunk?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>Enviar tudo aumenta contexto, custo, latência e ruído.</li>
+<li>Embedding é uma representação numérica, não o texto da resposta.</li>
+<li>Busca semântica compara significado, não apenas igualdade de palavras.</li>
+<li>RAG não retreina o modelo.</li>
+<li>Sem evidência suficiente, a resposta deve reconhecer a limitação.</li>
+<li>O texto do chunk é enviado como contexto; o embedding foi usado para encontrá-lo.</li>
+</ul>
+<hr>
+<h1>Bloco 6 - Pipeline de ingestão</h1>
+<p><strong>Tempo:</strong> 25 minutos<br><strong>Formato:</strong> [CONSTRUIR] com arquivo-base disponível</p>
+<p>Apresente <code>src/rag/ingest-documents.ts</code> em etapas.</p>
+<h2>Etapa 1 - Classificar os documentos</h2>
+<pre><code class="language-typescript">const publicDocuments = [
+  &#39;cancelamento.pdf&#39;,
+  &#39;politica-hospedagem.pdf&#39;,
+  &#39;passeios.pdf&#39;,
+  &#39;faq.pdf&#39;
+]
+
+const internalDocuments = [
+  &#39;manual-funcionarios.pdf&#39;
+]
+</code></pre>
+<p>Ser público ou interno é uma regra da aplicação. O embedding não cria autorização automaticamente.</p>
+<h2>Etapa 2 - Enviar os arquivos</h2>
+<pre><code class="language-typescript">await client.files.create({
+  file: createReadStream(resolve(&#39;docs&#39;, fileName)),
+  purpose: &#39;assistants&#39;
+})
+</code></pre>
+<h2>Etapa 3 - Criar o vector store</h2>
+<pre><code class="language-typescript">await client.vectorStores.create({
+  name,
+  expires_after: {
+    anchor: &#39;last_active_at&#39;,
+    days: 30
+  }
+})
+</code></pre>
+<p>O prazo de expiração é útil para um projeto didático e evita manter indefinidamente stores esquecidos.</p>
+<h2>Etapa 4 - Definir chunking e aguardar o processamento</h2>
+<pre><code class="language-typescript">await client.vectorStores.fileBatches.createAndPoll(
+  vectorStore.id,
+  {
+    file_ids: files.map(file =&gt; file.id),
+    chunking_strategy: {
+      type: &#39;static&#39;,
+      static: {
+        max_chunk_size_tokens: 800,
+        chunk_overlap_tokens: 200
+      }
+    }
+  }
+)
+</code></pre>
+<p>Explique os trade-offs:</p>
+<ul>
+<li>chunks pequenos são específicos, mas podem perder contexto;</li>
+<li>chunks grandes preservam contexto, mas acrescentam ruído;</li>
+<li>overlap reduz cortes bruscos entre trechos, mas aumenta armazenamento.</li>
+</ul>
+<h2>Executar</h2>
+<pre><code class="language-bash">npm run rag:ingest
+</code></pre>
+<p>Ao final, copie para <code>.env</code>:</p>
+<pre><code class="language-dotenv">OPENAI_PUBLIC_VECTOR_STORE_ID=vs_...
+OPENAI_INTERNAL_VECTOR_STORE_ID=vs_...
+</code></pre>
+<h2>Onde entra um banco de dados real</h2>
+<p>O banco vetorial entra depois da criação dos embeddings e antes do retrieval:</p>
+<pre><code class="language-text">Documento
+  -&gt; chunks
+  -&gt; embeddings
+  -&gt; BANCO VETORIAL
+  -&gt; busca
+  -&gt; chunks recuperados
+  -&gt; LLM
+</code></pre>
+<p>Conceitualmente, cada chunk poderia ser armazenado assim:</p>
+<pre><code class="language-typescript">{
+  id: &#39;chunk-001&#39;,
+  documentId: &#39;cancelamento.pdf&#39;,
+  chunkIndex: 3,
+  content:
+    &#39;Com menos de 7 dias, será retido 50% do valor.&#39;,
+  embedding: [0.021, -0.734, 0.184],
+  audience: &#39;public&#39;
+}
+</code></pre>
+<p>O banco precisa relacionar:</p>
+<ul>
+<li>texto original do chunk;</li>
+<li>vetor do embedding;</li>
+<li>documento de origem;</li>
+<li>metadados e permissões;</li>
+<li>índice para encontrar vetores próximos.</li>
+</ul>
+<h3>Neste projeto</h3>
+<p>O banco vetorial é o Vector Store gerenciado pela OpenAI:</p>
+<pre><code class="language-text">Aplicação
+  -&gt; envia os PDFs
+  -&gt; OpenAI extrai o texto
+  -&gt; OpenAI cria os chunks
+  -&gt; OpenAI gera os embeddings
+  -&gt; OpenAI armazena e indexa
+  -&gt; aplicação pesquisa pelo vectorStoreId
+</code></pre>
+<p>Não existe banco local. O <code>.env</code> armazena somente os identificadores <code>vs_...</code> dos recursos remotos.</p>
+<h3>Com PostgreSQL e pgvector</h3>
+<p>O fluxo seria:</p>
+<pre><code class="language-text">Aplicação
+  -&gt; extrai o texto
+  -&gt; cria os chunks
+  -&gt; solicita ou gera embeddings
+  -&gt; salva texto, vetores e metadados no PostgreSQL
+  -&gt; cria e mantém o índice vetorial
+  -&gt; executa a busca por similaridade
+</code></pre>
+<p>Uma tabela poderia se parecer com:</p>
+<pre><code class="language-sql">CREATE TABLE document_chunks (
+  id UUID PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  embedding VECTOR(1536)
+);
+</code></pre>
+<p>A dimensão do vetor depende do modelo de embeddings escolhido.</p>
+<p>Uma consulta seria conceitualmente:</p>
+<pre><code class="language-sql">SELECT
+  document_id,
+  content,
+  embedding &lt;=&gt; $1 AS distance
+FROM document_chunks
+WHERE audience = &#39;public&#39;
+ORDER BY embedding &lt;=&gt; $1
+LIMIT 3;
+</code></pre>
+<p>Não execute este SQL durante a aula. Ele existe apenas para mostrar onde o banco entraria.</p>
+<h2>Banco operacional não é banco vetorial</h2>
+<p>Em uma aplicação real, os dois podem coexistir:</p>
+<pre><code class="language-text">PostgreSQL operacional
+  hóspedes
+  quartos
+  reservas
+  pagamentos
+
+Banco ou índice vetorial
+  políticas
+  manuais
+  contratos
+  perguntas frequentes
+</code></pre>
+<p>Exemplo de pergunta que exige as duas fontes:</p>
+<pre><code class="language-text">&quot;A reserva de João pode ser cancelada sem multa?&quot;
+</code></pre>
+<p>O agente poderia:</p>
+<ol>
+<li>consultar a reserva no banco operacional;</li>
+<li>obter a data do check-in;</li>
+<li>recuperar a política no banco vetorial;</li>
+<li>comparar a antecedência com a regra;</li>
+<li>produzir a resposta.</li>
+</ol>
+<h2>Por que usar pgvector se existe Vector Store?</h2>
+<h3>Vector Store da OpenAI</h3>
+<p>Vantagens:</p>
+<ul>
+<li>não exige instalação;</li>
+<li>gerencia extração, chunking, embeddings e indexação;</li>
+<li>possui busca pronta;</li>
+<li>reduz código e manutenção;</li>
+<li>é adequado para protótipos, cursos e bases pequenas.</li>
+</ul>
+<p>Trade-offs:</p>
+<ul>
+<li>dados ficam em um serviço externo;</li>
+<li>existe dependência do fornecedor;</li>
+<li>há menos controle sobre índice e recuperação;</li>
+<li>o custo cresce com armazenamento e uso;</li>
+<li>migrações podem exigir nova ingestão.</li>
+</ul>
+<h3>PostgreSQL com pgvector</h3>
+<p>Vantagens:</p>
+<ul>
+<li>maior controle sobre dados, tabelas, índices e filtros;</li>
+<li>integração com usuários, empresas e permissões;</li>
+<li>possibilidade de usar diferentes provedores de embeddings;</li>
+<li>pode aproveitar um PostgreSQL já existente;</li>
+<li>maior independência do fornecedor.</li>
+</ul>
+<p>Trade-offs:</p>
+<ul>
+<li>instalação e configuração;</li>
+<li>extração e chunking implementados pela equipe;</li>
+<li>geração e armazenamento manual dos embeddings;</li>
+<li>migrations, índices, backups e monitoramento;</li>
+<li>custo de servidor e manutenção.</li>
+</ul>
+<p>O <code>pgvector</code> é open source, mas uma operação em produção não é gratuita. Ela consome servidor, disco, memória, backup, monitoramento e trabalho da equipe.</p>
+<h2>Custos atuais do Vector Store</h2>
+<p>De acordo com a tabela oficial consultada em setembro de 2026:</p>
+<ul>
+<li>até 1 GB total de armazenamento vetorial: gratuito;</li>
+<li>acima de 1 GB: US$ 0,10 por GB por dia;</li>
+<li><code>file_search</code> usado pela Responses API: US$ 2,50 por 1.000 chamadas;</li>
+<li>chunks entregues ao modelo são cobrados como tokens de entrada conforme o modelo utilizado.</li>
+</ul>
+<p>O armazenamento considera o resultado depois de parsing, chunking e embeddings, não apenas o tamanho original dos PDFs.</p>
+<p>Exemplo com 2 GB armazenados:</p>
+<pre><code class="language-text">1 GB gratuito
+1 GB cobrado
+US$ 0,10 por dia
+aproximadamente US$ 3,00 em 30 dias
+</code></pre>
+<p>No projeto da pousada, os cinco PDFs devem ficar muito abaixo de 1 GB. O armazenamento provavelmente ficará dentro da faixa gratuita, mas preços devem ser conferidos novamente antes da aula.</p>
+<p>Nesta Aula 6 usamos diretamente:</p>
+<pre><code class="language-typescript">client.vectorStores.search(...)
+</code></pre>
+<p>Ainda não usamos o <code>file_search</code> como ferramenta embutida da Responses API. A cobrança por chamada indicada na tabela oficial aplica-se ao <code>file_search</code> na Responses API. Na Aula 7, os chunks recuperados e enviados ao modelo também participarão do custo normal de tokens.</p>
+<h2>Ciclo de vida dos documentos</h2>
+<h3>O que acontece se <code>createKnowledgeBase</code> rodar novamente?</h3>
+<p>Na implementação desta aula, cada execução faz novamente:</p>
+<pre><code class="language-typescript">client.files.create(...)
+client.vectorStores.create(...)
+</code></pre>
+<p>Portanto, executar <code>npm run rag:ingest</code> outra vez não atualiza os recursos anteriores. O script:</p>
+<ol>
+<li>envia novas cópias dos PDFs;</li>
+<li>cria novos objetos <code>file_...</code>;</li>
+<li>cria novos vector stores <code>vs_...</code>;</li>
+<li>processa novamente os chunks e embeddings;</li>
+<li>imprime novos identificadores.</li>
+</ol>
+<p>Os vector stores anteriores continuam existindo até serem excluídos ou expirarem. Trocar os IDs no <code>.env</code> apenas faz a aplicação apontar para os novos stores; isso não remove os antigos.</p>
+<p>Também não se deve presumir que a plataforma eliminará duplicações pelo nome ou pelo conteúdo do PDF. Se o mesmo arquivo for enviado e associado novamente, ele pode produzir conteúdo duplicado e aumentar o armazenamento.</p>
+<p>Escreva no quadro:</p>
+<pre><code class="language-text">Nosso script é uma carga inicial.
+Ele não é uma rotina de sincronização idempotente.
+</code></pre>
+<p>Uma rotina idempotente precisaria identificar o documento, verificar sua versão ou hash e decidir entre criar, manter, substituir ou remover.</p>
+<h3>O que acontece se o PDF local for apagado?</h3>
+<p>Excluir isto:</p>
+<pre><code class="language-text">docs/faq.pdf
+</code></pre>
+<p>não altera o vector store remoto. A OpenAI já recebeu e processou uma cópia do arquivo.</p>
+<p>Primeiro obtenha o <code>fileId</code>. É possível listar os arquivos associados ao store:</p>
+<pre><code class="language-typescript">const files = await client.vectorStores.files.list(
+  vectorStoreId
+)
+
+for (const file of files.data) {
+  console.log(file.id, file.status)
+}
+</code></pre>
+<p>Para remover o arquivo de um vector store específico:</p>
+<pre><code class="language-typescript">await client.vectorStores.files.delete(
+  fileId,
+  {
+    vector_store_id: vectorStoreId
+  }
+)
+</code></pre>
+<p>Essa operação remove a associação e o conteúdo indexado daquele store, mas não exclui automaticamente o objeto original da Files API.</p>
+<p>Para apagar também o arquivo enviado:</p>
+<pre><code class="language-typescript">await client.files.delete(fileId)
+</code></pre>
+<p>Atenção:</p>
+<ul>
+<li>remover do vector store preserva o arquivo original na Files API;</li>
+<li>excluir pela Files API remove o arquivo e o desassocia de todos os vector stores;</li>
+<li>a remoção do índice é eventualmente consistente, portanto o conteúdo pode aparecer em buscas por um curto período após a exclusão.</li>
+</ul>
+<h3>O que acontece quando um PDF é atualizado?</h3>
+<p>Alterar o PDF local não atualiza o recurso remoto. Não existe sincronização automática com a pasta <code>docs/</code>.</p>
+<p>O endpoint de atualização de <code>vector_store.file</code> altera atributos e metadados, não substitui o conteúdo já processado. Para atualizar o conteúdo:</p>
+<pre><code class="language-text">1. gerar ou receber a nova versão do PDF;
+2. enviar a nova versão com files.create();
+3. associar a nova file ao vector store;
+4. aguardar chunking, embeddings e indexação;
+5. remover a versão anterior do vector store;
+6. excluir a file anterior se ela não for mais utilizada.
+</code></pre>
+<p>Exemplo de associação e processamento da nova versão:</p>
+<pre><code class="language-typescript">const newFile = await client.files.create({
+  file: createReadStream(&#39;docs/faq.pdf&#39;),
+  purpose: &#39;assistants&#39;
+})
+
+await client.vectorStores.files.createAndPoll(
+  vectorStoreId,
+  {
+    file_id: newFile.id
+  }
+)
+</code></pre>
+<p>Depois que a nova versão estiver com status <code>completed</code>, remova a antiga. Essa ordem reduz o período em que nenhuma versão estaria disponível, embora possa haver um pequeno intervalo com as duas versões indexadas.</p>
+<p>Em uma aplicação real, mantenha um manifesto ou tabela de controle:</p>
+<pre><code class="language-typescript">{
+  documentName: &#39;faq.pdf&#39;,
+  version: 3,
+  checksum: &#39;sha256-...&#39;,
+  fileId: &#39;file_...&#39;,
+  vectorStoreId: &#39;vs_...&#39;,
+  indexedAt: &#39;2026-09-27T18:00:00Z&#39;
+}
+</code></pre>
+<p>Isso permite descobrir se o documento mudou e qual recurso antigo precisa ser removido.</p>
+<h2>Resposta curta para os alunos</h2>
+<blockquote>
+<p>Usamos o Vector Store da OpenAI porque ele já faz chunking, embeddings, indexação e busca, evitando o setup de um banco. Em produção, poderíamos substituí-lo por PostgreSQL com pgvector ou outro banco vetorial. Um banco próprio oferece mais controle, privacidade e independência, mas transfere para a equipe toda a implementação e manutenção. Não existe opção universalmente melhor: a escolha depende do volume, dos requisitos e da equipe.</p>
+</blockquote>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>Por que criamos stores diferentes para documentos públicos e internos?</li>
+<li>O que pode acontecer se o chunk for menor que uma regra completa?</li>
+<li>Por que existe sobreposição entre chunks?</li>
+<li>Ingestão precisa acontecer em toda pergunta?</li>
+<li>Reiniciar o Express apaga os vector stores?</li>
+<li>Por que uma empresa escolheria pgvector em vez do Vector Store gerenciado?</li>
+<li>Usar pgvector significa custo zero?</li>
+<li>Um banco vetorial substitui o banco de reservas?</li>
+<li>Rodar <code>rag:ingest</code> duas vezes atualiza a base existente?</li>
+<li>Apagar um PDF da pasta <code>docs/</code> remove seu conteúdo remoto?</li>
+<li>É possível alterar o conteúdo de uma file apenas atualizando seus atributos?</li>
+<li>Qual informação permite relacionar um PDF local à sua cópia remota?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>A separação facilita aplicar autorização na recuperação.</li>
+<li>A informação pode ficar fragmentada e perder sentido.</li>
+<li>O overlap preserva contexto nas fronteiras.</li>
+<li>Ingestão é uma etapa anterior e só precisa ser repetida quando necessário.</li>
+<li>Não. Eles estão no serviço remoto e são referenciados por ID.</li>
+<li>pgvector oferece mais controle, integração, privacidade e independência, mas exige infraestrutura.</li>
+<li>Não. O software pode ser aberto, mas servidor, operação e geração de embeddings têm custo.</li>
+<li>Não necessariamente. Dados operacionais e conhecimento documental resolvem problemas diferentes.</li>
+<li>Não. Nosso script cria novos arquivos e novos vector stores.</li>
+<li>Não. A cópia remota precisa ser removida explicitamente.</li>
+<li>Não. Uma nova versão deve ser enviada e reindexada.</li>
+<li>O <code>fileId</code>, preferencialmente acompanhado por versão ou checksum em um manifesto.</li>
+</ul>
+<blockquote>
+<p>A documentação oficial informa que a estratégia automática usa atualmente chunks máximos de 800 tokens e overlap de 400. Nesta aula usamos uma estratégia estática com overlap menor para tornar a decisão visível no código.</p>
+</blockquote>
+<hr>
+<h1>Bloco 7 - Busca semântica e retrieval</h1>
+<p><strong>Tempo:</strong> 20 minutos<br><strong>Formato:</strong> [CONSTRUIR] e testar</p>
+<p>Abra <code>src/rag/search-documents.ts</code>.</p>
+<p>A busca central é:</p>
+<pre><code class="language-typescript">const results = await client.vectorStores.search(
+  vectorStoreId,
+  {
+    query: question,
+    max_num_results: 3,
+    rewrite_query: true
+  }
+)
+</code></pre>
+<p>Ela ainda não pede ao modelo para escrever uma resposta. Apenas recupera trechos.</p>
+<h2>Teste 1 - Cancelamento</h2>
+<pre><code class="language-bash">npm run rag:search -- public \
+  &quot;Posso cancelar minha reserva perto do check-in?&quot;
+</code></pre>
+<p>Observe:</p>
+<ul>
+<li>arquivo de origem;</li>
+<li>similaridade;</li>
+<li>texto recuperado;</li>
+<li>quantidade de resultados.</li>
+</ul>
+<h2>Teste 2 - Palavras diferentes</h2>
+<pre><code class="language-bash">npm run rag:search -- public \
+  &quot;Vou desistir da viagem. Quanto dinheiro perco?&quot;
+</code></pre>
+<p>Discuta como a pergunta pode recuperar regras de cancelamento mesmo sem repetir exatamente o título do documento.</p>
+<h2>Teste 3 - Passeios</h2>
+<pre><code class="language-bash">npm run rag:search -- public \
+  &quot;Existe alguma atividade adequada para quem não sabe nadar?&quot;
+</code></pre>
+<h2>Teste 4 - Documento interno na base pública</h2>
+<pre><code class="language-bash">npm run rag:search -- public \
+  &quot;Qual é o procedimento interno durante uma emergência?&quot;
+</code></pre>
+<p>O conteúdo do manual não deve aparecer porque ele está em outro store.</p>
+<p>Agora, apenas como professor/funcionário:</p>
+<pre><code class="language-bash">npm run rag:search -- internal \
+  &quot;Qual é o procedimento interno durante uma emergência?&quot;
+</code></pre>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>O maior score garante que a resposta está correta?</li>
+<li>Recuperar três chunks significa usar obrigatoriamente os três?</li>
+<li>A busca já produziu uma resposta para o hóspede?</li>
+<li>Como impedir que um hóspede consulte o store interno?</li>
+<li>Por que precisamos registrar o nome do arquivo junto ao trecho?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>Score mede relevância estimada, não verdade absoluta.</li>
+<li>A aplicação ou o modelo ainda pode selecionar o contexto útil.</li>
+<li>Não. Até aqui fizemos retrieval, não geração.</li>
+<li>A aplicação escolhe quais IDs ficam disponíveis conforme a autorização.</li>
+<li>A origem permite rastreabilidade e futura citação.</li>
+</ul>
+<hr>
+<h1>Encerramento</h1>
+<p><strong>Tempo:</strong> 5 minutos</p>
+<p>Desenhe a arquitetura alcançada:</p>
+<pre><code class="language-text">Usuário autenticado
+  -&gt; rota Express
+  -&gt; autorização
+  -&gt; agent loop
+       -&gt; tools dos JSONs
+       -&gt; solicitação de ação
+
+Documentos PDF
+  -&gt; ingestão
+  -&gt; chunks
+  -&gt; embeddings
+  -&gt; vector store
+  -&gt; retrieval
+</code></pre>
+<p>Ainda falta uma ligação importante:</p>
+<pre><code class="language-text">retrieval -&gt; agent loop
+</code></pre>
+<p>Esse será o início da Aula 07: transformar a consulta aos documentos em uma capacidade usada pelo agente.</p>
+<h2>Perguntas finais para a turma</h2>
+<ol>
+<li>Qual é a diferença entre consultar uma reserva e consultar uma política?</li>
+<li>Qual informação está estruturada e qual está em texto livre?</li>
+<li>Por que o agente não deve receber automaticamente todos os documentos?</li>
+<li>Onde a autorização aparece tanto nas tools quanto no RAG?</li>
+<li>O que já está persistido depois que o servidor é encerrado?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>Reservas usam dados estruturados; políticas usam documentos não estruturados.</li>
+<li>Tools operacionais e retrieval resolvem problemas diferentes.</li>
+<li>Contexto e permissões devem ser limitados ao necessário.</li>
+<li>A aplicação seleciona ferramentas e stores conforme o perfil.</li>
+<li>Os <code>Map</code>s são perdidos; os JSONs permanecem; os vector stores remotos continuam até sua expiração ou exclusão.</li>
+</ul>
+<h1>Checklist do professor</h1>
+<ul>
+<li><input disabled="" type="checkbox"> O problema do conhecimento privado foi demonstrado.</li>
+<li><input disabled="" type="checkbox"> RAG foi diferenciado de treinamento do modelo.</li>
+<li><input disabled="" type="checkbox"> Chunks e embeddings foram definidos separadamente.</li>
+<li><input disabled="" type="checkbox"> Os documentos públicos e internos foram classificados.</li>
+<li><input disabled="" type="checkbox"> O pipeline criou vector stores e processou os PDFs.</li>
+<li><input disabled="" type="checkbox"> A busca semântica foi executada com termos diferentes dos documentos.</li>
+<li><input disabled="" type="checkbox"> Foi explicado onde pgvector ou outro banco vetorial entraria.</li>
+<li><input disabled="" type="checkbox"> Custos e ciclo de vida dos documentos foram discutidos.</li>
+<li><input disabled="" type="checkbox"> Foi demonstrado que autorização continua sendo responsabilidade da aplicação.</li>
+</ul>
+<h1>Correspondência com a ementa</h1>
+<p>Esta aula cobre:</p>
+<ul>
+<li>estado, memória e segurança;</li>
+<li>segurança de agentes;</li>
+<li>validação e autorização de ações;</li>
+<li>Prompt Injection;</li>
+<li>preparação do agente para conhecimento privado;</li>
+<li>problema que o RAG resolve;</li>
+<li>introdução ao RAG;</li>
+<li>embeddings;</li>
+<li>busca semântica;</li>
+<li>preparação de documentos;</li>
+<li>chunking;</li>
+<li>geração de embeddings;</li>
+<li>armazenamento vetorial;</li>
+<li>retrieval;</li>
+<li>recuperação de contexto relevante.</li>
+</ul>
+<p>O RAG integrado ao agent loop, o MCP e a consolidação da arquitetura ficam reservados para a Aula Real 07.</p>
+<h1>Referências oficiais do professor</h1>
+<ul>
+<li>File Search e ferramentas da Responses API: <a href="https://platform.openai.com/docs/guides/tools-file-search">https://platform.openai.com/docs/guides/tools-file-search</a></li>
+<li>Vector stores e arquivos: <a href="https://platform.openai.com/docs/api-reference/vector-stores-files">https://platform.openai.com/docs/api-reference/vector-stores-files</a></li>
+<li>Busca em vector stores: <a href="https://developers.openai.com/api/reference/typescript/resources/vector_stores/methods/search">https://developers.openai.com/api/reference/typescript/resources/vector_stores/methods/search</a></li>
+<li>Retrieval e preços de vector stores: <a href="https://developers.openai.com/api/docs/guides/retrieval">https://developers.openai.com/api/docs/guides/retrieval</a></li>
+<li>Tabela de preços da API: <a href="https://developers.openai.com/api/docs/pricing">https://developers.openai.com/api/docs/pricing</a></li>
+</ul>
+
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <button class="back-top" id="back-top" title="Voltar ao topo" aria-label="Voltar ao topo">↑</button>
+
+  <footer>
+    Pousada Parnaioca · Curso de Agentes de IA com JavaScript · Prof. Vitor Esteves
+  </footer>
+
+  <script>
+    (function () {
+      var root = document.documentElement
+      var body = document.body
+      var content = document.getElementById('content')
+      var nav = document.getElementById('nav')
+      var search = document.getElementById('search')
+      var quickLinks = document.getElementById('quick-links')
+      var progress = document.getElementById('progress')
+      var backTop = document.getElementById('back-top')
+      var themeButton = document.getElementById('theme-button')
+      var menuButton = document.getElementById('menu-button')
+      var overlay = document.getElementById('overlay')
+
+      function slugify(text) {
+        return text
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+      }
+
+      var usedIds = new Map()
+      var headings = Array.from(content.querySelectorAll('h1, h2'))
+
+      headings.forEach(function (heading) {
+        var base = slugify(heading.textContent) || 'secao'
+        var count = usedIds.get(base) || 0
+        usedIds.set(base, count + 1)
+        heading.id = count ? base + '-' + (count + 1) : base
+      })
+
+      Array.from(content.querySelectorAll('table')).forEach(function (table) {
+        var wrap = document.createElement('div')
+        wrap.className = 'table-wrap'
+        table.parentNode.insertBefore(wrap, table)
+        wrap.appendChild(table)
+      })
+
+      Array.from(content.querySelectorAll('pre')).forEach(function (pre) {
+        var code = pre.querySelector('code')
+        if (!code) return
+
+        var languageClass = Array.from(code.classList).find(function (name) {
+          return name.indexOf('language-') === 0
+        })
+        var language = languageClass
+          ? languageClass.replace('language-', '')
+          : 'código'
+
+        var wrapper = document.createElement('div')
+        wrapper.className = 'code-block'
+
+        var header = document.createElement('div')
+        header.className = 'code-head'
+
+        var label = document.createElement('span')
+        label.className = 'code-lang'
+        label.textContent = language
+
+        var button = document.createElement('button')
+        button.className = 'copy-button'
+        button.type = 'button'
+        button.textContent = 'Copiar'
+        button.addEventListener('click', async function () {
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(code.textContent)
+            } else {
+              var copyArea = document.createElement('textarea')
+              copyArea.value = code.textContent
+              copyArea.setAttribute('readonly', '')
+              copyArea.style.position = 'fixed'
+              copyArea.style.opacity = '0'
+              document.body.appendChild(copyArea)
+              copyArea.select()
+              document.execCommand('copy')
+              copyArea.remove()
+            }
+
+            button.textContent = 'Copiado!'
+          } catch {
+            button.textContent = 'Não copiou'
+          }
+
+          window.setTimeout(function () {
+            button.textContent = 'Copiar'
+          }, 1400)
+        })
+
+        header.append(label, button)
+        pre.parentNode.insertBefore(wrapper, pre)
+        wrapper.append(header, pre)
+      })
+
+      var groups = []
+      var currentGroup = null
+
+      headings.slice(1).forEach(function (heading) {
+        if (heading.tagName === 'H1') {
+          currentGroup = {
+            heading: heading,
+            children: []
+          }
+          groups.push(currentGroup)
+        } else if (currentGroup) {
+          currentGroup.children.push(heading)
+        }
+      })
+
+      function makeLink(heading, className) {
+        var link = document.createElement('a')
+        link.href = '#' + heading.id
+        link.textContent = heading.textContent
+        link.className = className
+        link.dataset.target = heading.id
+        link.addEventListener('click', function () {
+          body.classList.remove('menu-open')
+        })
+        return link
+      }
+
+      groups.forEach(function (group, index) {
+        var details = document.createElement('details')
+        details.className = 'nav-group'
+        details.open = index < 2
+
+        var summary = document.createElement('summary')
+        summary.appendChild(makeLink(group.heading, 'nav-main'))
+        details.appendChild(summary)
+
+        group.children.forEach(function (heading) {
+          details.appendChild(makeLink(heading, 'nav-sub'))
+        })
+
+        nav.appendChild(details)
+      })
+
+      var quickLabels = ["Bloco 5 - O problema que o RAG resolve","Bloco 6 - Pipeline de ingestão","Bloco 7 - Busca semântica e retrieval","Encerramento","Checklist do professor","Correspondência com a ementa","Referências oficiais do professor"]
+      var quickTargets = headings
+        .slice(1)
+        .filter(function (heading) { return heading.tagName === 'H1' })
+        .slice(0, quickLabels.length)
+        .map(function (heading, index) {
+          return [quickLabels[index], heading.id]
+        })
+
+      quickTargets.forEach(function (item) {
+        var target = document.getElementById(item[1])
+        if (!target) return
+        var link = document.createElement('a')
+        link.className = 'quick-link'
+        link.href = '#' + item[1]
+        link.textContent = item[0]
+        quickLinks.appendChild(link)
+      })
+
+      var navLinks = Array.from(nav.querySelectorAll('a'))
+      var observed = headings.slice(1)
+      var observer = new IntersectionObserver(function (entries) {
+        var visible = entries
+          .filter(function (entry) { return entry.isIntersecting })
+          .sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top })
+
+        if (!visible.length) return
+        var id = visible[0].target.id
+
+        navLinks.forEach(function (link) {
+          var active = link.dataset.target === id
+          link.classList.toggle('active', active)
+          if (active) {
+            var details = link.closest('details')
+            if (details) details.open = true
+          }
+        })
+      }, {
+        rootMargin: '-78px 0px -72% 0px',
+        threshold: 0
+      })
+
+      observed.forEach(function (heading) {
+        observer.observe(heading)
+      })
+
+      search.addEventListener('input', function () {
+        var query = search.value
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase()
+          .trim()
+        var matches = 0
+
+        Array.from(nav.querySelectorAll('.nav-group')).forEach(function (group) {
+          var links = Array.from(group.querySelectorAll('a'))
+          var groupMatch = false
+
+          links.forEach(function (link) {
+            var text = link.textContent
+              .normalize('NFD')
+              .replace(/[̀-ͯ]/g, '')
+              .toLowerCase()
+            var match = !query || text.includes(query)
+            link.style.display = match ? '' : 'none'
+            if (match) {
+              groupMatch = true
+              matches++
+            }
+          })
+
+          group.style.display = groupMatch ? '' : 'none'
+          if (query && groupMatch) group.open = true
+        })
+
+        var empty = nav.querySelector('.nav-empty')
+        if (!matches && !empty) {
+          empty = document.createElement('div')
+          empty.className = 'nav-empty'
+          empty.textContent = 'Nenhum tópico encontrado.'
+          nav.appendChild(empty)
+        } else if (matches && empty) {
+          empty.remove()
+        }
+      })
+
+      function updateScroll() {
+        var documentHeight = document.documentElement.scrollHeight - window.innerHeight
+        var ratio = documentHeight > 0 ? window.scrollY / documentHeight : 0
+        progress.style.width = Math.min(100, ratio * 100) + '%'
+        backTop.classList.toggle('visible', window.scrollY > 600)
+      }
+
+      window.addEventListener('scroll', updateScroll, { passive: true })
+      updateScroll()
+
+      backTop.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+
+      function closeMenu() {
+        body.classList.remove('menu-open')
+      }
+
+      menuButton.addEventListener('click', function () {
+        body.classList.toggle('menu-open')
+      })
+      overlay.addEventListener('click', closeMenu)
+
+      var savedTheme = localStorage.getItem('guia-aula-theme')
+      if (savedTheme === 'dark') root.dataset.theme = 'dark'
+
+      themeButton.addEventListener('click', function () {
+        var dark = root.dataset.theme === 'dark'
+        root.dataset.theme = dark ? 'light' : 'dark'
+        localStorage.setItem('guia-aula-theme', dark ? 'light' : 'dark')
+      })
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === '/' && document.activeElement !== search) {
+          event.preventDefault()
+          search.focus()
+          search.select()
+        }
+        if (event.key === 'Escape') {
+          search.value = ''
+          search.dispatchEvent(new Event('input'))
+          search.blur()
+          closeMenu()
+        }
+      })
+    })()
+  </script>
+</body>
+</html>

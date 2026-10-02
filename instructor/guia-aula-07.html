@@ -1,0 +1,2623 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Guia do professor da Aula 7: RAG integrado, MCP e arquitetura final.">
+  <title>Aula 7 — RAG integrado, MCP e arquitetura final</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #072f58;
+      --blue: #075ba6;
+      --blue-2: #1382d2;
+      --cyan: #27b9d6;
+      --paper: #f3f7fb;
+      --surface: #ffffff;
+      --surface-2: #f7faff;
+      --ink: #172334;
+      --muted: #5d6b7c;
+      --line: #d8e3ee;
+      --code: #0b1726;
+      --code-bar: #12263c;
+      --code-ink: #e9f2fb;
+      --success: #11734b;
+      --success-bg: #eaf7f0;
+      --warning: #966000;
+      --warning-bg: #fff7e5;
+      --shadow: 0 14px 36px rgba(7, 47, 88, .09);
+      --sidebar: 330px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --paper: #08111d;
+      --surface: #0e1a29;
+      --surface-2: #122235;
+      --ink: #e8f0f8;
+      --muted: #a9b8c8;
+      --line: #26394d;
+      --code: #050b12;
+      --code-bar: #0a1522;
+      --success-bg: #102a22;
+      --warning-bg: #30240f;
+      --shadow: 0 14px 36px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 86px; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 400 15.5px/1.72 Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    a { color: var(--blue); }
+
+    .progress {
+      position: fixed;
+      inset: 0 auto auto 0;
+      z-index: 100;
+      width: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), #5aa8ff);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: 64px;
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+    .topbar-inner {
+      max-width: 1540px;
+      height: 100%;
+      margin: 0 auto;
+      padding: 0 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: white;
+      background: linear-gradient(145deg, var(--navy), var(--blue-2));
+      font-weight: 800;
+      letter-spacing: -.04em;
+      box-shadow: 0 5px 12px rgba(7, 91, 166, .25);
+    }
+    .brand-text { min-width: 0; line-height: 1.2; }
+    .brand-text strong { display: block; color: var(--navy); }
+    [data-theme="dark"] .brand-text strong { color: #a8d8ff; }
+    .brand-text span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .icon-button:hover { background: var(--surface-2); }
+    .menu-button { display: none; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: white;
+      background:
+        radial-gradient(circle at 84% 24%, rgba(39, 185, 214, .34), transparent 24%),
+        linear-gradient(125deg, #062b50 0%, #075b9f 68%, #0f79be 100%);
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      right: -230px;
+      bottom: -360px;
+      border: 70px solid rgba(255, 255, 255, .07);
+      border-radius: 50%;
+    }
+    .hero-inner {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 42px 24px 68px;
+      position: relative;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 11px;
+      border: 1px solid rgba(255, 255, 255, .28);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .1);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      max-width: 940px;
+      margin: 16px 0 10px;
+      font-size: clamp(30px, 4vw, 54px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    .hero p { max-width: 860px; margin: 0; color: #dceeff; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+    .chip {
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .13);
+      border: 1px solid rgba(255, 255, 255, .17);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .quickbar {
+      max-width: 1540px;
+      margin: -27px auto 0;
+      padding: 0 24px;
+      position: relative;
+      z-index: 3;
+    }
+    .quickbar-inner {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      scrollbar-width: thin;
+    }
+    .quick-link {
+      flex: none;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--ink);
+      background: var(--surface-2);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .quick-link:hover { color: var(--blue); border-color: var(--blue-2); }
+
+    .shell {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(0, 1fr);
+      gap: 26px;
+      align-items: start;
+    }
+    .sidebar {
+      position: sticky;
+      top: 82px;
+      max-height: calc(100vh - 102px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .sidebar-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+    .sidebar-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    [data-theme="dark"] .sidebar-title { color: #a8d8ff; }
+    .shortcut { color: var(--muted); font-size: 10px; letter-spacing: 0; }
+    .search {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      outline: none;
+      color: var(--ink);
+      background: var(--surface-2);
+      font-size: 13px;
+    }
+    .search:focus { border-color: var(--blue-2); box-shadow: 0 0 0 3px rgba(19, 130, 210, .12); }
+    .nav { overflow-y: auto; padding: 10px; scrollbar-width: thin; }
+    .nav-group { margin: 2px 0 6px; }
+    .nav-group summary {
+      list-style: none;
+      cursor: pointer;
+      border-radius: 9px;
+    }
+    .nav-group summary::-webkit-details-marker { display: none; }
+    .nav-main {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 9px;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 12.5px;
+      font-weight: 720;
+      line-height: 1.35;
+    }
+    .nav-sub {
+      display: block;
+      margin-left: 12px;
+      padding: 6px 9px 6px 14px;
+      border-left: 1px solid var(--line);
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 11.5px;
+      line-height: 1.35;
+    }
+    .nav a:hover { color: var(--blue); background: var(--surface-2); }
+    .nav a.active {
+      color: var(--blue);
+      background: color-mix(in srgb, var(--blue) 10%, var(--surface));
+      box-shadow: inset 3px 0 0 var(--blue-2);
+    }
+    .nav-empty { padding: 14px; color: var(--muted); font-size: 12px; text-align: center; }
+
+    main {
+      min-width: 0;
+      padding: clamp(24px, 4vw, 56px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    main > h1:first-child { display: none; }
+    main h1, main h2, main h3, main h4 { scroll-margin-top: 86px; }
+    main h1 {
+      margin: 68px 0 22px;
+      padding: 18px 20px;
+      border-radius: 13px;
+      color: white;
+      background: linear-gradient(125deg, var(--navy), var(--blue));
+      font-size: clamp(23px, 3vw, 31px);
+      line-height: 1.25;
+      letter-spacing: -.025em;
+    }
+    main h1:nth-of-type(2) { margin-top: 0; }
+    main h2 {
+      margin: 42px 0 14px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--line);
+      color: var(--navy);
+      font-size: 21px;
+      line-height: 1.3;
+    }
+    [data-theme="dark"] main h2 { color: #a8d8ff; }
+    main h3 { margin: 30px 0 11px; font-size: 17px; color: var(--blue); }
+    main h4 { margin: 24px 0 8px; font-size: 15px; }
+    main p { margin: 0 0 15px; }
+    main ul, main ol { margin: 0 0 18px; padding-left: 24px; }
+    main li { margin: 5px 0; }
+    main strong { color: color-mix(in srgb, var(--ink) 88%, var(--blue)); }
+    main blockquote {
+      margin: 20px 0;
+      padding: 16px 19px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue-2);
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--ink);
+    }
+    main blockquote p:last-child { margin-bottom: 0; }
+    main hr { margin: 48px 0; border: 0; border-top: 1px solid var(--line); }
+    main :not(pre) > code {
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      color: var(--blue);
+      background: var(--surface-2);
+      font: 500 .88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .table-wrap { max-width: 100%; overflow-x: auto; margin: 18px 0 24px; }
+    main table { width: 100%; border-collapse: collapse; min-width: 560px; font-size: 13px; }
+    main th, main td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    main th { color: var(--navy); background: var(--surface-2); }
+    [data-theme="dark"] main th { color: #a8d8ff; }
+
+    .code-block {
+      margin: 18px 0 23px;
+      overflow: hidden;
+      border: 1px solid #21374d;
+      border-radius: 12px;
+      background: var(--code);
+      box-shadow: 0 7px 18px rgba(4, 16, 29, .18);
+    }
+    .code-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 10px 7px 15px;
+      color: #9fb6cb;
+      background: var(--code-bar);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    .code-lang::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: #3ea6ff;
+    }
+    .copy-button {
+      padding: 4px 9px;
+      border: 1px solid #34516c;
+      border-radius: 6px;
+      color: #d7e8f8;
+      background: transparent;
+      cursor: pointer;
+      font-size: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .copy-button:hover { background: #1a334c; }
+    .code-block pre { margin: 0; padding: 17px 19px; overflow-x: auto; }
+    .code-block code {
+      color: var(--code-ink);
+      font: 400 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      tab-size: 2;
+    }
+
+    .back-top {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 20;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 12px;
+      color: white;
+      background: var(--blue);
+      box-shadow: 0 8px 22px rgba(7, 91, 166, .28);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: .2s ease;
+    }
+    .back-top.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .overlay { display: none; }
+
+    footer {
+      padding: 25px;
+      color: #c7d7e7;
+      background: var(--navy);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      :root { --sidebar: 320px; }
+      .menu-button { display: grid; }
+      .shell { display: block; }
+      .sidebar {
+        position: fixed;
+        inset: 64px auto 0 0;
+        z-index: 45;
+        width: min(88vw, var(--sidebar));
+        max-height: none;
+        border-radius: 0 16px 16px 0;
+        transform: translateX(-105%);
+        transition: transform .23s ease;
+      }
+      body.menu-open .sidebar { transform: translateX(0); }
+      .overlay {
+        position: fixed;
+        inset: 64px 0 0;
+        z-index: 40;
+        background: rgba(2, 10, 19, .48);
+      }
+      body.menu-open .overlay { display: block; }
+    }
+
+    @media (max-width: 600px) {
+      .topbar-inner, .hero-inner, .quickbar, .shell { padding-left: 14px; padding-right: 14px; }
+      .brand-text span { display: none; }
+      .hero-inner { padding-top: 30px; padding-bottom: 54px; }
+      .hero h1 { font-size: 31px; }
+      main { padding: 22px 16px 38px; border-radius: 14px; }
+      main h1 { margin-left: -4px; margin-right: -4px; padding: 15px; font-size: 22px; }
+      main h2 { font-size: 19px; }
+      .back-top { right: 14px; bottom: 14px; }
+    }
+
+    @media print {
+      @page { margin: 14mm; }
+      body { background: white; font-size: 10.5pt; }
+      .progress, .topbar, .quickbar, .sidebar, .overlay, .back-top, .copy-button { display: none !important; }
+      .hero { color: #111; background: white; }
+      .hero-inner { max-width: none; padding: 0 0 18px; }
+      .hero p { color: #333; }
+      .eyebrow, .chip { color: #111; border-color: #aaa; background: white; }
+      .shell { display: block; max-width: none; padding: 0; }
+      main { padding: 0; border: 0; box-shadow: none; }
+      main h1 { color: #111; background: #eaf2f9; break-after: avoid; }
+      main h2, main h3 { break-after: avoid; }
+      .code-block, table, blockquote { break-inside: avoid; }
+      .code-block pre { white-space: pre-wrap; }
+      footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button class="icon-button menu-button" id="menu-button" aria-label="Abrir menu">☰</button>
+        <div class="brand-mark">C</div>
+        <div class="brand-text">
+          <strong>COTI Informática</strong>
+          <span>Agentes de IA com JavaScript · Guia do professor</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" id="theme-button" title="Alternar tema" aria-label="Alternar tema">◐</button>
+        <button class="icon-button" onclick="window.print()" title="Imprimir" aria-label="Imprimir">⎙</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Aula 07 · guia do professor</span>
+      <h1>RAG integrado, MCP e arquitetura final</h1>
+      <p>RAG no agente, MCP local e HTTP, frameworks, APIs e banco em memória. Material navegável com conceitos, código, testes, perguntas e respostas esperadas.</p>
+      <div class="chips">
+        <span class="chip">RAG + file_search</span>
+        <span class="chip">MCP stdio + HTTP</span>
+        <span class="chip">Agents SDK</span>
+        <span class="chip">API + SQLite</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="quickbar">
+    <nav class="quickbar-inner" id="quick-links" aria-label="Atalhos principais"></nav>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="sidebar-title">
+          <span>Tópicos da aula</span>
+          <span class="shortcut">pressione /</span>
+        </div>
+        <input class="search" id="search" type="search" placeholder="Buscar tópico..." autocomplete="off">
+      </div>
+      <nav class="nav" id="nav" aria-label="Menu da aula"></nav>
+    </aside>
+
+    <main id="content">
+      <h1>Aula 7 - RAG integrado, MCP e arquitetura final</h1>
+<h2>Visão geral</h2>
+<p><strong>Duração total:</strong> 3 horas<br><strong>Tempo previsto de interação e mercado:</strong> 1 hora<br><strong>Tempo técnico disponível:</strong> aproximadamente 2 horas</p>
+<p>Esta aula apresenta o Model Context Protocol, primeiro de maneira local com
+<code>stdio</code> e depois pela rede com Streamable HTTP. O mesmo servidor MCP será
+usado nos dois transportes.</p>
+<p>Antes do MCP, a aula conclui a parte de RAG que ficou pendente no encontro
+anterior: primeiro o <code>file_search</code> gera uma resposta com base nos documentos;
+depois ele é incorporado ao agent loop principal.</p>
+<p>Ao final da aula, os alunos deverão compreender:</p>
+<ul>
+<li>como o retrieval se transforma em uma resposta fundamentada;</li>
+<li>como funciona a tool hospedada <code>file_search</code>;</li>
+<li>o significado de <code>file_search_call</code>, <code>queries</code> e <code>results</code>;</li>
+<li>como o agente decide entre function tools e busca nos documentos;</li>
+<li>como limitar vector stores conforme o perfil autenticado;</li>
+<li>qual problema o MCP resolve;</li>
+<li>as responsabilidades do host, cliente e servidor MCP;</li>
+<li>a diferença entre tool, resource e transport;</li>
+<li>por que <code>stdio</code> normalmente representa uma integração local;</li>
+<li>como um cliente descobre e executa capacidades de um servidor MCP;</li>
+<li>como conectar as tools MCP ao agent loop da Responses API;</li>
+<li>como disponibilizar o mesmo servidor por Streamable HTTP;</li>
+<li>o que ainda seria necessário para publicar o servidor na internet com
+segurança.</li>
+</ul>
+<h2>Legenda didática</h2>
+<ul>
+<li><strong>[CONSTRUIR]</strong>: alunos escrevem o código junto com o professor.</li>
+<li><strong>[DEMONSTRAR]</strong>: o código fica pronto no repositório do professor e os
+alunos observam a execução.</li>
+<li><strong>[EXPLICAR]</strong>: conteúdo conceitual apresentado no quadro ou por diagrama.</li>
+</ul>
+<h2>O que construir e o que somente demonstrar</h2>
+<p>No cronograma regular, seria necessário selecionar demonstrações para caber
+nas duas horas técnicas. Para a aula extra de três horas, siga o roteiro
+especial apresentado abaixo.</p>
+<table>
+<thead>
+<tr>
+<th>Parte</th>
+<th>Formato</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rag:answer</code> com <code>file_search</code></td>
+<td>[CONSTRUIR]</td>
+</tr>
+<tr>
+<td>RAG integrado ao agent loop</td>
+<td>[CONSTRUIR]</td>
+</tr>
+<tr>
+<td>Conceitos e arquitetura MCP</td>
+<td>[EXPLICAR]</td>
+</tr>
+<tr>
+<td>Servidor MCP com uma tool e um resource</td>
+<td>[CONSTRUIR]</td>
+</tr>
+<tr>
+<td>Cliente MCP por <code>stdio</code></td>
+<td>[CONSTRUIR]</td>
+</tr>
+<tr>
+<td>Integração do MCP com o agente</td>
+<td>[CONSTRUIR]</td>
+</tr>
+<tr>
+<td>Streamable HTTP</td>
+<td>[DEMONSTRAR]</td>
+</tr>
+<tr>
+<td>Autenticação, publicação e frameworks</td>
+<td>[EXPLICAR]</td>
+</tr>
+<tr>
+<td>Tool consumindo uma API REST</td>
+<td>[DEMONSTRAR]</td>
+</tr>
+<tr>
+<td>Tool consultando SQLite em memória</td>
+<td>[DEMONSTRAR]</td>
+</tr>
+</tbody></table>
+<h2>Atalhos para as demonstrações finais</h2>
+<p>Os exemplos finais ficam perto do encerramento deste guia. Use estes atalhos
+para encontrá-los rapidamente:</p>
+<table>
+<thead>
+<tr>
+<th>Demonstração</th>
+<th>Arquivo</th>
+<th>Seção do guia</th>
+<th>Comando</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RAG produzindo resposta</td>
+<td><code>src/rag/file-search.ts</code></td>
+<td>Bloco 0A</td>
+<td><code>npm run rag:answer</code></td>
+</tr>
+<tr>
+<td>RAG dentro do agente</td>
+<td><code>src/tool-calling.ts</code></td>
+<td>Bloco 0B</td>
+<td><code>npm run dev</code></td>
+</tr>
+<tr>
+<td>Framework de agentes</td>
+<td><code>src/frameworks/agents-sdk.ts</code></td>
+<td>Bloco 10</td>
+<td><code>npm run framework:agents</code></td>
+</tr>
+<tr>
+<td>Tools consumindo API REST</td>
+<td><code>src/examples/api-tools.ts</code></td>
+<td>Bloco 11</td>
+<td><code>npm run example:api</code></td>
+</tr>
+<tr>
+<td>Tools consultando banco</td>
+<td><code>src/examples/database-tools.ts</code></td>
+<td>Bloco 12</td>
+<td><code>npm run example:database</code></td>
+</tr>
+</tbody></table>
+<p>Ordem sugerida para o fechamento:</p>
+<pre><code class="language-text">Agents SDK
+  -&gt; API Tools
+  -&gt; Database Tools
+  -&gt; chatbot x workflow x agente
+  -&gt; arquitetura completa
+</code></pre>
+<h2>Roteiro especial para a aula gratuita de 3 horas</h2>
+<p>Como esta aula extra possui três horas e o curso regular já deveria ter sido
+encerrado, use as três horas como tempo técnico:</p>
+<pre><code class="language-text">00:00 - 00:20  Bloco 0A: rag:answer
+00:20 - 00:45  Bloco 0B: RAG integrado ao agente
+00:45 - 02:15  MCP: servidor, cliente, agente e HTTP
+02:15 - 02:45  Agents SDK, API Tools e Database Tools
+02:45 - 03:00  Arquitetura final, perguntas e margem
+</code></pre>
+<p>Se a conversa inicial com a turma consumir parte do encontro, preserve os
+blocos 0A, 0B e o MCP por <code>stdio</code>. Streamable HTTP, frameworks e os exemplos
+de API/banco já estão montados e podem ser demonstrados rapidamente.</p>
+<hr>
+<h1>Bloco 0A - Do retrieval para uma resposta com <code>file_search</code></h1>
+<p><strong>Tempo:</strong> 20 minutos
+<strong>Formato:</strong> [CONSTRUIR] e testar</p>
+<h2>Retomada da Aula 6</h2>
+<p>Na Aula 6, <code>src/rag/search-documents.ts</code> executou:</p>
+<pre><code class="language-typescript">client.vectorStores.search(...)
+</code></pre>
+<p>Esse script realizou apenas retrieval:</p>
+<pre><code class="language-text">pergunta
+  -&gt; busca vetorial
+  -&gt; chunks relevantes
+</code></pre>
+<p>Ele exibiu arquivo, similaridade e texto dos chunks, mas não pediu para um
+LLM formular a resposta ao hóspede.</p>
+<p>Agora abra:</p>
+<pre><code class="language-text">src/rag/file-search.ts
+</code></pre>
+<p>O comando correspondente no <code>package.json</code> é:</p>
+<pre><code class="language-json">&quot;rag:answer&quot;: &quot;tsx src/rag/file-search.ts&quot;
+</code></pre>
+<p>O novo fluxo será:</p>
+<pre><code class="language-text">pergunta
+  -&gt; Responses API
+  -&gt; file_search
+  -&gt; busca no vector store
+  -&gt; chunks recuperados
+  -&gt; modelo interpreta os chunks
+  -&gt; resposta final
+</code></pre>
+<h2>Etapa 1 - Configuração</h2>
+<p>O script exige a chave, o modelo e o ID do vector store público:</p>
+<pre><code class="language-typescript">const apiKey = process.env.OPENAI_API_KEY
+
+const vectorStoreId =
+  process.env.OPENAI_PUBLIC_VECTOR_STORE_ID
+
+const model =
+  process.env.OPENAI_MODEL || &#39;gpt-5.6-luna&#39;
+</code></pre>
+<p>Os documentos precisam ter sido ingeridos anteriormente com:</p>
+<pre><code class="language-bash">npm run rag:ingest
+</code></pre>
+<p>Não execute a ingestão novamente se os IDs válidos já estiverem no <code>.env</code>.</p>
+<h2>Etapa 2 - Receber a pergunta pela linha de comando</h2>
+<pre><code class="language-typescript">const question =
+  process.argv.slice(2).join(&#39; &#39;).trim()
+
+if (!question) {
+  throw new Error(&#39;Informe uma pergunta&#39;)
+}
+</code></pre>
+<p>O <code>--</code> do comando npm separa os argumentos do npm dos argumentos entregues ao
+script:</p>
+<pre><code class="language-bash">npm run rag:answer -- \
+  &quot;Qual é a senha do Wi-Fi da Pousada Parnaioca?&quot;
+</code></pre>
+<h2>Etapa 3 - Disponibilizar <code>file_search</code></h2>
+<pre><code class="language-typescript">const response = await client.responses.create({
+  model,
+
+  instructions: `
+    Você é o assistente da Pousada Parnaioca.
+
+    Responda perguntas sobre as políticas e os serviços
+    da pousada usando os documentos disponíveis.
+
+    Não invente regras ou informações.
+    Se os documentos não forem suficientes, diga que
+    não encontrou a informação.
+  `,
+
+  input: question,
+
+  tools: [
+    {
+      type: &#39;file_search&#39;,
+      vector_store_ids: [vectorStoreId],
+      max_num_results: 3
+    }
+  ],
+
+  include: [
+    &#39;file_search_call.results&#39;
+  ]
+})
+</code></pre>
+<h3><code>tools</code></h3>
+<p><code>file_search</code> é uma tool hospedada: a Responses API executa a pesquisa no
+vector store. Nosso processo não recebe um <code>function_call</code> para executar uma
+função JavaScript local.</p>
+<h3><code>vector_store_ids</code></h3>
+<p>Indica em quais bases a pesquisa pode ocorrer. Neste script isolado,
+disponibilizamos somente a base pública.</p>
+<h3><code>max_num_results</code></h3>
+<p>Limita quantos resultados podem ser recuperados. Não garante que sempre virão
+três resultados nem que todos possuem relevância suficiente.</p>
+<h3><code>include</code></h3>
+<p>Solicita que os resultados encontrados sejam incluídos em <code>response.output</code>.
+Sem isso, o modelo ainda pode usar <code>file_search</code>, mas a inspeção dos chunks
+recuperados fica limitada.</p>
+<h2>Etapa 4 - Resposta final e inspeção</h2>
+<pre><code class="language-typescript">console.log(&#39;RESPOSTA&#39;)
+console.log(response.output_text)
+
+console.log(&#39;\nOUTPUT COMPLETO&#39;)
+console.dir(response.output, {
+  depth: null
+})
+</code></pre>
+<p><code>response.output_text</code> é a resposta redigida para o usuário.</p>
+<p>No output completo, procure um item semelhante a:</p>
+<pre><code class="language-text">type: file_search_call
+queries: [...]
+results: [...]
+</code></pre>
+<h2>O que significa <code>file_search_call</code>?</h2>
+<p>Pode-se dizer didaticamente que é o registro da chamada feita pelo modelo à
+ferramenta de busca do RAG. De maneira mais precisa:</p>
+<blockquote>
+<p><code>file_search_call</code> representa a execução da tool hospedada de busca nos
+arquivos durante a resposta.</p>
+</blockquote>
+<p>Ele não é o texto final e não é um <code>function_call</code> que nossa aplicação
+precisa executar.</p>
+<h2>O que são <code>queries</code>?</h2>
+<p>Para uma pergunta sobre Wi-Fi, o item pode apresentar algo semelhante a:</p>
+<pre><code class="language-typescript">queries: [
+  &#39;Qual é a senha do Wi-Fi da Pousada Parnaioca?&#39;,
+  &#39;senha Wi-Fi internet wireless Pousada Parnaioca&#39;,
+  &#39;Wi-Fi password Pousada Parnaioca&#39;
+]
+</code></pre>
+<p>Essas queries são formulações usadas para pesquisar o vector store. Elas
+podem incluir:</p>
+<ul>
+<li>a pergunta original;</li>
+<li>uma reformulação com palavras relacionadas;</li>
+<li>variações que aumentem a chance de localizar o trecho correto.</li>
+</ul>
+<p>Elas não são:</p>
+<ul>
+<li>respostas;</li>
+<li>chunks;</li>
+<li>embeddings exibidos em texto;</li>
+<li>novas perguntas feitas ao usuário.</li>
+</ul>
+<p>O fluxo detalhado é:</p>
+<pre><code class="language-text">input do usuário
+  -&gt; modelo decide pesquisar
+  -&gt; file_search produz/reformula queries
+  -&gt; busca semântica no vector store
+  -&gt; results contêm os trechos recuperados
+  -&gt; modelo usa os trechos
+  -&gt; output_text contém a resposta
+</code></pre>
+<h2>Comparativo dos dois scripts</h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Responsabilidade</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>search-documents.ts</code></td>
+<td>Faz retrieval diretamente e exibe chunks</td>
+</tr>
+<tr>
+<td><code>file-search.ts</code></td>
+<td>Disponibiliza <code>file_search</code> ao modelo e produz resposta</td>
+</tr>
+</tbody></table>
+<p>O primeiro é melhor para estudar a recuperação isoladamente. O segundo
+mostra o fluxo de RAG completo, mas ainda fora do agente principal.</p>
+<h2>Testes</h2>
+<h3>FAQ</h3>
+<pre><code class="language-bash">npm run rag:answer -- \
+  &quot;Qual é a senha do Wi-Fi da Pousada Parnaioca?&quot;
+</code></pre>
+<h3>Cancelamento</h3>
+<pre><code class="language-bash">npm run rag:answer -- \
+  &quot;Se eu cancelar faltando cinco dias, qual será a multa?&quot;
+</code></pre>
+<h3>Informação ausente</h3>
+<pre><code class="language-bash">npm run rag:answer -- \
+  &quot;Qual é a marca do gerador elétrico da pousada?&quot;
+</code></pre>
+<p>Para a terceira pergunta, a resposta deve reconhecer que a informação não
+foi encontrada, em vez de inventar.</p>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>Qual é a diferença entre <code>results</code> e <code>output_text</code>?</li>
+<li>Quem executa a busca: nosso script ou a tool hospedada?</li>
+<li><code>queries</code> são os chunks encontrados?</li>
+<li><code>file_search</code> retreina o modelo?</li>
+<li>Por que inspecionar o output completo se já temos <code>output_text</code>?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li><code>results</code> contém evidências recuperadas; <code>output_text</code> é a resposta gerada.</li>
+<li>A Responses API executa a tool hospedada configurada pelo script.</li>
+<li>Não. Queries são formulações de busca.</li>
+<li>Não. Os documentos entram como contexto recuperado.</li>
+<li>Para observar consultas, fontes, trechos e diagnosticar respostas.</li>
+</ul>
+<hr>
+<h1>Bloco 0B - Integrar RAG ao agente principal</h1>
+<p><strong>Tempo:</strong> 25 minutos
+<strong>Formato:</strong> [CONSTRUIR] e testar</p>
+<p>O script anterior sempre recebe <code>file_search</code> e serve somente para perguntas
+documentais. O agente principal precisa decidir entre:</p>
+<pre><code class="language-text">responder diretamente
+usar uma function tool para dados estruturados
+usar file_search para documentos
+encadear mais de uma capacidade
+</code></pre>
+<p>Abra <code>src/tool-calling.ts</code>.</p>
+<h2>Etapa 1 - Ler os dois vector stores</h2>
+<pre><code class="language-typescript">const publicVectorStoreId =
+  getRequiredEnvironmentVariable(
+    &#39;OPENAI_PUBLIC_VECTOR_STORE_ID&#39;
+  )
+
+const internalVectorStoreId =
+  getRequiredEnvironmentVariable(
+    &#39;OPENAI_INTERNAL_VECTOR_STORE_ID&#39;
+  )
+</code></pre>
+<p>O agente precisa dos dois IDs porque o store permitido depende do perfil
+autenticado.</p>
+<h2>Etapa 2 - Separar as function tools</h2>
+<p>Renomeie a coleção existente:</p>
+<pre><code class="language-typescript">const functionTools: OpenAI.Responses.Tool[] = [
+  // findGuest, findReservationsByGuestId,
+  // getBedroomById e requestReservationCancellation
+]
+</code></pre>
+<p>Isso diferencia as funções executadas localmente da tool hospedada
+<code>file_search</code>.</p>
+<h2>Etapa 3 - Escolher stores por perfil</h2>
+<pre><code class="language-typescript">function getVectorStoreIdsForRole(
+  role: UserRole
+): string[] {
+  if (role === &#39;guest&#39;) {
+    return [
+      publicVectorStoreId
+    ]
+  }
+
+  return [
+    publicVectorStoreId,
+    internalVectorStoreId
+  ]
+}
+</code></pre>
+<p>Regra da aula:</p>
+<table>
+<thead>
+<tr>
+<th>Perfil</th>
+<th>Stores permitidos</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>guest</code></td>
+<td>Público</td>
+</tr>
+<tr>
+<td><code>employee</code></td>
+<td>Público e interno</td>
+</tr>
+<tr>
+<td><code>manager</code></td>
+<td>Público e interno</td>
+</tr>
+</tbody></table>
+<p>O modelo não escolhe permissão. A aplicação decide quais IDs entram na
+requisição.</p>
+<h2>Etapa 4 - Combinar functions e <code>file_search</code></h2>
+<pre><code class="language-typescript">function getToolsForRole(
+  role: UserRole
+): OpenAI.Responses.Tool[] {
+  const allowedFunctionTools =
+    functionTools.filter(tool =&gt; {
+      if (tool.type !== &#39;function&#39;) {
+        return false
+      }
+
+      return isToolAllowed(role, tool.name)
+    })
+
+  const fileSearchTool:
+    OpenAI.Responses.FileSearchTool = {
+    type: &#39;file_search&#39;,
+    vector_store_ids:
+      getVectorStoreIdsForRole(role),
+    max_num_results: 3
+  }
+
+  return [
+    ...allowedFunctionTools,
+    fileSearchTool
+  ]
+}
+</code></pre>
+<p>Agora a mesma lista <code>tools</code> combina:</p>
+<ul>
+<li>function tools locais;</li>
+<li>file search hospedado.</li>
+</ul>
+<h2>Etapa 5 - Orientar a escolha</h2>
+<pre><code class="language-typescript">instructions: `
+  Você é o assistente da Pousada Parnaioca.
+
+  Use as function tools quando precisar consultar dados
+  estruturados, como hóspedes, reservas e quartos.
+
+  Use file_search quando precisar consultar políticas,
+  regras, passeios, perguntas frequentes ou procedimentos
+  documentados da pousada.
+
+  Não invente informações sobre hóspedes, reservas,
+  políticas ou procedimentos.
+
+  Quando os documentos não contiverem a informação,
+  diga que ela não foi encontrada.
+`
+</code></pre>
+<p>Prompt orienta a escolha, mas a segurança continua no filtro de tools e
+stores feito pela aplicação.</p>
+<h2>Etapa 6 - Incluir e observar os resultados</h2>
+<p>Na requisição:</p>
+<pre><code class="language-typescript">include: [
+  &#39;file_search_call.results&#39;
+]
+</code></pre>
+<p>No processamento de <code>response.output</code>:</p>
+<pre><code class="language-typescript">if (item.type === &#39;file_search_call&#39;) {
+  console.log(&#39;FILE SEARCH&#39;, {
+    queries: item.queries,
+
+    results: item.results?.map(result =&gt; ({
+      filename: result.filename,
+      score: result.score,
+      text: result.text
+    }))
+  })
+
+  continue
+}
+</code></pre>
+<h2>Por que não criamos <code>function_call_output</code>?</h2>
+<p>Para nossas function tools:</p>
+<pre><code class="language-text">modelo solicita function_call
+  -&gt; aplicação executa JavaScript
+  -&gt; aplicação envia function_call_output
+  -&gt; nova rodada
+</code></pre>
+<p>Para <code>file_search</code> hospedado:</p>
+<pre><code class="language-text">modelo usa file_search
+  -&gt; Responses API executa a busca
+  -&gt; resultados ficam disponíveis ao modelo
+  -&gt; resposta pode ser concluída na mesma requisição
+</code></pre>
+<p>Por isso <code>hasFunctionCall</code> continua controlando somente chamadas das funções
+que nossa aplicação precisa executar.</p>
+<h2>Testes pela API</h2>
+<p>Inicie:</p>
+<pre><code class="language-bash">npm run dev
+</code></pre>
+<h3>Hóspede consultando documento público</h3>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/chat \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer guest-demo-token&quot; \
+  -d &#39;{
+    &quot;conversationId&quot;:&quot;rag-publico-001&quot;,
+    &quot;message&quot;:&quot;Qual é a senha do Wi-Fi da pousada?&quot;
+  }&#39;
+</code></pre>
+<p>Resultado esperado: resposta baseada no FAQ e log <code>FILE SEARCH</code>.</p>
+<h3>Hóspede tentando consultar documento interno</h3>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/chat \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer guest-demo-token&quot; \
+  -d &#39;{
+    &quot;conversationId&quot;:&quot;rag-interno-guest-001&quot;,
+    &quot;message&quot;:&quot;Qual é o procedimento interno em uma emergência?&quot;
+  }&#39;
+</code></pre>
+<p>Resultado esperado: o manual interno não fica disponível e o agente não
+deve revelar o procedimento.</p>
+<h3>Funcionário consultando documento interno</h3>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/chat \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer employee-demo-token&quot; \
+  -d &#39;{
+    &quot;conversationId&quot;:&quot;rag-interno-employee-001&quot;,
+    &quot;message&quot;:&quot;Qual é o procedimento interno em uma emergência?&quot;
+  }&#39;
+</code></pre>
+<p>Resultado esperado: resposta fundamentada no manual de funcionários.</p>
+<h3>O agente escolhendo dados estruturados</h3>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/chat \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer employee-demo-token&quot; \
+  -d &#39;{
+    &quot;conversationId&quot;:&quot;rag-tools-001&quot;,
+    &quot;message&quot;:&quot;João possui uma reserva confirmada?&quot;
+  }&#39;
+</code></pre>
+<p>Resultado esperado: function tools, não documentos, fornecem os dados da
+reserva.</p>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>O modelo decide quais vector stores um hóspede pode pesquisar?</li>
+<li>Por que separar os stores público e interno?</li>
+<li><code>file_search_call</code> exige que nosso código execute uma função?</li>
+<li>Uma pergunta pode exigir function tool e RAG?</li>
+<li>O log de queries permite entender melhor uma recuperação ruim?</li>
+<li>Prompt sozinho impediria acesso ao manual interno?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>A aplicação escolhe os IDs conforme o perfil.</li>
+<li>A separação reduz o risco de recuperação indevida.</li>
+<li>Não. A tool é executada pela Responses API.</li>
+<li>Sim. Exemplo: combinar a reserva de João com a política de cancelamento.</li>
+<li>Sim. As queries e os chunks ajudam a diagnosticar o retrieval.</li>
+<li>Não. O store interno deve ser omitido da requisição não autorizada.</li>
+</ul>
+<h2>Transição para MCP</h2>
+<p>Até aqui, todas as capacidades foram conectadas diretamente ao projeto:</p>
+<pre><code class="language-text">agent loop
+  -&gt; function tools locais
+  -&gt; file_search hospedado
+</code></pre>
+<p>A próxima pergunta é:</p>
+<blockquote>
+<p>Como disponibilizar ferramentas e contextos usando um protocolo que outros
+agentes e aplicações também consigam compreender?</p>
+</blockquote>
+<p>Essa pergunta introduz o MCP.</p>
+<hr>
+<h1>Primeira hora do cronograma regular - Interação e mercado</h1>
+<p>Este período permanece livre para conversa entre os alunos e discussão
+sobre o mercado de TI.</p>
+<p>Na aula gratuita de reposição, esta seção é opcional. O roteiro especial do
+início do documento usa as três horas para concluir o conteúdo técnico.</p>
+<p>Se houver oportunidade de conectar a conversa ao conteúdo, use:</p>
+<ol>
+<li>Como uma IA poderia usar ferramentas pertencentes a outra empresa?</li>
+<li>Toda integração com agentes precisa ser criada de maneira proprietária?</li>
+<li>O que acontece quando cada fornecedor descreve suas ferramentas de um
+jeito diferente?</li>
+<li>Um agente deveria receber acesso direto ao banco de dados da empresa?</li>
+<li>Qual é a diferença entre disponibilizar uma API e disponibilizar uma
+ferramenta para um agente?</li>
+</ol>
+<hr>
+<h1>Bloco 1 - O problema resolvido pelo MCP</h1>
+<p><strong>Tempo:</strong> 10 minutos<br><strong>Formato:</strong> [EXPLICAR]</p>
+<p>Até este ponto do curso, todas as function tools foram escritas diretamente
+na aplicação:</p>
+<pre><code class="language-text">Agente Parnaioca
+  ├─ definição de findGuest
+  ├─ função findGuest
+  ├─ definição de getBedroomById
+  └─ função getBedroomById
+</code></pre>
+<p>Isso funciona, mas cria acoplamento. Cada novo agente precisa conhecer a
+descrição, os argumentos e a forma de executar cada ferramenta.</p>
+<p>Com MCP, um servidor publica suas capacidades usando um protocolo comum:</p>
+<pre><code class="language-text">Host do agente
+  └─ Cliente MCP
+       └─ Transporte
+            └─ Servidor MCP da Parnaioca
+                 ├─ tool: find_guest
+                 └─ resource: bedrooms-catalog
+</code></pre>
+<h2>Definições</h2>
+<h3>Host</h3>
+<p>É a aplicação em que o agente está sendo executado. Neste projeto, o
+script que usa a Responses API faz o papel de host.</p>
+<h3>Cliente MCP</h3>
+<p>É o componente usado pelo host para se conectar a um servidor MCP. Ele
+envia mensagens do protocolo, lista capacidades e solicita execuções.</p>
+<h3>Servidor MCP</h3>
+<p>É o programa que anuncia e executa capacidades. Ele pode estar no mesmo
+computador ou em outro serviço acessível pela rede.</p>
+<h3>Tool</h3>
+<p>É uma capacidade executável. Recebe argumentos e pode consultar dados,
+calcular ou provocar efeitos no mundo externo.</p>
+<p>Exemplo:</p>
+<pre><code class="language-text">find_guest({ name: &quot;João&quot; })
+</code></pre>
+<h3>Resource</h3>
+<p>É um conteúdo que pode ser lido por meio de uma URI conhecida. Não
+representa uma ação solicitada pelo modelo.</p>
+<p>Exemplo:</p>
+<pre><code class="language-text">parnaioca://bedrooms/catalog
+</code></pre>
+<h3>Transport</h3>
+<p>É o canal por onde cliente e servidor trocam as mensagens MCP. Nesta aula
+serão usados <code>stdio</code> e Streamable HTTP.</p>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>MCP substitui o modelo de IA?</li>
+<li>MCP substitui a API ou o banco de dados da empresa?</li>
+<li>Quem executa a ferramenta: o modelo ou o servidor MCP?</li>
+<li>Uma tool MCP precisa obrigatoriamente usar IA?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>MCP não é modelo e não substitui o agent loop.</li>
+<li>O servidor MCP pode encapsular uma API, banco ou outra regra de negócio.</li>
+<li>O modelo solicita; a aplicação e o servidor executam.</li>
+<li>Uma tool MCP pode ser apenas uma função determinística comum.</li>
+</ul>
+<hr>
+<h1>Bloco 2 - Instalação dos pacotes</h1>
+<p><strong>Tempo:</strong> 5 minutos<br><strong>Formato:</strong> [CONSTRUIR]</p>
+<p>O projeto utiliza a linha 2 do SDK TypeScript do MCP, distribuída em pacotes
+separados:</p>
+<pre><code class="language-bash">npm install @modelcontextprotocol/server @modelcontextprotocol/client
+</code></pre>
+<p>Para a demonstração HTTP:</p>
+<pre><code class="language-bash">npm install @modelcontextprotocol/express @modelcontextprotocol/node
+</code></pre>
+<p>Responsabilidades:</p>
+<ul>
+<li><code>@modelcontextprotocol/server</code>: cria o servidor, as tools e os resources;</li>
+<li><code>@modelcontextprotocol/client</code>: cria clientes <code>stdio</code> e HTTP;</li>
+<li><code>@modelcontextprotocol/express</code>: prepara o Express para servir MCP;</li>
+<li><code>@modelcontextprotocol/node</code>: adapta requisições Node/Express ao handler
+MCP.</li>
+</ul>
+<hr>
+<h1>Bloco 3 - Criar o servidor MCP uma única vez</h1>
+<p><strong>Tempo:</strong> 20 minutos<br><strong>Formato:</strong> [CONSTRUIR]</p>
+<p>Crie <code>src/mcp/create-server.ts</code>.</p>
+<p>Esse arquivo não escolhe <code>stdio</code> ou HTTP. Ele registra apenas as capacidades
+da Pousada Parnaioca. Essa separação permitirá reutilizar o mesmo servidor nos
+dois transportes.</p>
+<h2>Criar a instância</h2>
+<pre><code class="language-typescript">import { McpServer } from &#39;@modelcontextprotocol/server&#39;
+import * as z from &#39;zod/v4&#39;
+import { bedrooms, guests } from &#39;../data/index.js&#39;
+
+export function createParnaiocaMcpServer() {
+  const server = new McpServer({
+    name: &#39;parnaioca-mcp&#39;,
+    version: &#39;1.0.0&#39;
+  })
+
+  // registros entram aqui
+
+  return server
+}
+</code></pre>
+<p>Cada conexão poderá receber uma nova instância desse servidor.</p>
+<h2>Registrar a tool <code>find_guest</code></h2>
+<pre><code class="language-typescript">server.registerTool(
+  &#39;find_guest&#39;,
+  {
+    title: &#39;Buscar hóspede&#39;,
+    description: &#39;Busca um hóspede cadastrado pelo nome.&#39;,
+    inputSchema: z.object({
+      name: z
+        .string()
+        .min(1)
+        .describe(&#39;Nome ou parte do nome do hóspede&#39;)
+    })
+  },
+  async ({ name }) =&gt; {
+    const guest = guests.find((item) =&gt;
+      item.name
+        .toLowerCase()
+        .includes(name.toLowerCase())
+    )
+
+    return {
+      content: [
+        {
+          type: &#39;text&#39;,
+          text: JSON.stringify(guest ?? null)
+        }
+      ]
+    }
+  }
+)
+</code></pre>
+<p>Mostre as três partes:</p>
+<ol>
+<li>nome usado pelo cliente: <code>find_guest</code>;</li>
+<li>metadados e schema usados para descobrir como chamá-la;</li>
+<li>callback que executa a regra de negócio.</li>
+</ol>
+<p>O resultado MCP possui uma coleção <code>content</code>, pois o protocolo pode
+representar diferentes tipos de conteúdo. Neste exemplo, a ferramenta devolve
+texto contendo JSON.</p>
+<h2>Registrar o resource de quartos</h2>
+<pre><code class="language-typescript">server.registerResource(
+  &#39;bedrooms-catalog&#39;,
+  &#39;parnaioca://bedrooms/catalog&#39;,
+  {
+    title: &#39;Catálogo de quartos&#39;,
+    description: &#39;Lista os quartos disponíveis na pousada.&#39;,
+    mimeType: &#39;application/json&#39;
+  },
+  async (uri) =&gt; ({
+    contents: [
+      {
+        uri: uri.href,
+        mimeType: &#39;application/json&#39;,
+        text: JSON.stringify(bedrooms, null, 2)
+      }
+    ]
+  })
+)
+</code></pre>
+<h2>Tool ou resource?</h2>
+<table>
+<thead>
+<tr>
+<th>Necessidade</th>
+<th>Capacidade</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Buscar um hóspede usando um argumento</td>
+<td>Tool</td>
+</tr>
+<tr>
+<td>Solicitar cancelamento de uma reserva</td>
+<td>Tool</td>
+</tr>
+<tr>
+<td>Ler um catálogo por uma URI conhecida</td>
+<td>Resource</td>
+</tr>
+<tr>
+<td>Ler um manual ou configuração</td>
+<td>Resource</td>
+</tr>
+</tbody></table>
+<p>Essa separação não é uma fronteira de segurança. Tools e resources
+sensíveis ainda exigem autorização.</p>
+<hr>
+<h1>Bloco 4 - Servir MCP por <code>stdio</code></h1>
+<p><strong>Tempo:</strong> 5 minutos<br><strong>Formato:</strong> [CONSTRUIR]</p>
+<p>Crie <code>src/mcp/server.ts</code>:</p>
+<pre><code class="language-typescript">import { serveStdio } from &#39;@modelcontextprotocol/server/stdio&#39;
+import { createParnaiocaMcpServer } from &#39;./create-server.js&#39;
+
+serveStdio(createParnaiocaMcpServer)
+
+console.error(&#39;Servidor MCP da Parnaioca iniciado&#39;)
+</code></pre>
+<p>Adicione ao <code>package.json</code>:</p>
+<pre><code class="language-json">&quot;mcp:server&quot;: &quot;tsx src/mcp/server.ts&quot;
+</code></pre>
+<h2>Por que <code>console.error</code>?</h2>
+<p>No transporte <code>stdio</code>, a saída padrão faz parte do canal usado pelo
+protocolo. Um <code>console.log</code> arbitrário no servidor pode misturar texto de
+depuração com as mensagens MCP.</p>
+<p><code>console.error</code> escreve em <code>stderr</code>, deixando <code>stdout</code> livre para o protocolo.</p>
+<h2>Característica do <code>stdio</code></h2>
+<pre><code class="language-text">Cliente local
+  └─ inicia um processo filho
+       └─ servidor MCP
+</code></pre>
+<p>Ele é adequado para integrações locais, CLIs e ferramentas instaladas na
+máquina do usuário. Não cria um endpoint acessível pela internet.</p>
+<hr>
+<h1>Bloco 5 - Criar o cliente MCP local</h1>
+<p><strong>Tempo:</strong> 15 minutos<br><strong>Formato:</strong> [CONSTRUIR]</p>
+<p>Crie <code>src/mcp/client.ts</code>.</p>
+<h2>Criar o cliente e o transporte</h2>
+<pre><code class="language-typescript">import { Client } from &#39;@modelcontextprotocol/client&#39;
+import {
+  StdioClientTransport
+} from &#39;@modelcontextprotocol/client/stdio&#39;
+
+const client = new Client({
+  name: &#39;parnaioca-client&#39;,
+  version: &#39;1.0.0&#39;
+})
+
+const transport = new StdioClientTransport({
+  command: &#39;npx&#39;,
+  args: [
+    &#39;tsx&#39;,
+    &#39;src/mcp/server.ts&#39;
+  ]
+})
+</code></pre>
+<p>O cliente não se conecta a um processo que abrimos manualmente. O transporte
+executa o comando e cria o processo filho do servidor.</p>
+<h2>Conectar e descobrir as tools</h2>
+<pre><code class="language-typescript">await client.connect(transport)
+
+const { tools } = await client.listTools()
+
+console.dir(tools, {
+  depth: null
+})
+</code></pre>
+<p>O retorno apresenta nome, descrição e JSON Schema dos argumentos. O cliente
+não precisou importar <code>find_guest</code>.</p>
+<h2>Executar a tool</h2>
+<pre><code class="language-typescript">const toolResult = await client.callTool({
+  name: &#39;find_guest&#39;,
+  arguments: {
+    name: &#39;João&#39;
+  }
+})
+</code></pre>
+<h2>Demonstrar erro de protocolo sem interromper a aula</h2>
+<pre><code class="language-typescript">try {
+  await client.callTool({
+    name: &#39;tool_inexistente&#39;,
+    arguments: {}
+  })
+} catch (error) {
+  console.error(&#39;Erro esperado:&#39;, error)
+}
+</code></pre>
+<p>Sem o <code>try/catch</code>, a execução terminaria antes de demonstrar os resources.</p>
+<h2>Descobrir e ler resources</h2>
+<pre><code class="language-typescript">const { resources } =
+  await client.listResources()
+
+const resourceResult =
+  await client.readResource({
+    uri: &#39;parnaioca://bedrooms/catalog&#39;
+  })
+</code></pre>
+<h2>Encerrar a conexão</h2>
+<pre><code class="language-typescript">try {
+  // demonstrações
+} finally {
+  await client.close()
+}
+</code></pre>
+<p>O <code>finally</code> garante que o processo filho seja encerrado mesmo quando ocorre um
+erro.</p>
+<h2>Executar</h2>
+<pre><code class="language-bash">npm run mcp:client
+</code></pre>
+<h2>Resultado esperado</h2>
+<pre><code class="language-text">Conectando ao servidor MCP...
+Servidor MCP da Parnaioca iniciado
+
+TOOLS DISPONÍVEIS
+find_guest
+
+EXECUTANDO find_guest
+João Silva
+
+EXECUTANDO TOOL INEXISTENTE
+Erro esperado: Tool tool_inexistente not found
+
+RESOURCES DISPONÍVEIS
+bedrooms-catalog
+
+LENDO CATÁLOGO DE QUARTOS
+...
+
+Conexão encerrada
+</code></pre>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>Quem iniciou o processo do servidor?</li>
+<li>O cliente conhecia previamente a estrutura dos argumentos de
+<code>find_guest</code>?</li>
+<li>Quem validou que <code>tool_inexistente</code> não existia?</li>
+<li><code>readResource</code> pede ao modelo que escolha um resource?</li>
+<li>Onde os dados de hóspedes continuam armazenados?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li><code>StdioClientTransport</code> iniciou o servidor como processo filho.</li>
+<li>A estrutura foi descoberta por <code>listTools()</code>.</li>
+<li>O servidor/protocolo rejeitou a ferramenta desconhecida.</li>
+<li>Nesse exemplo, foi o nosso código que escolheu explicitamente a URI.</li>
+<li>Os dados continuam nos JSONs da aplicação; MCP apenas fornece uma interface.</li>
+</ul>
+<hr>
+<h1>Bloco 6 - Integrar MCP ao agente</h1>
+<p><strong>Tempo:</strong> 25 minutos<br><strong>Formato:</strong> [CONSTRUIR]</p>
+<p>Até aqui não existe IA no fluxo MCP. Foi o script que decidiu executar
+<code>find_guest</code>.</p>
+<p>Agora, o host conectará as duas partes:</p>
+<pre><code class="language-text">Usuário
+  ↓
+Responses API
+  ↓ solicita function_call
+Host do agente
+  ↓ client.callTool
+Servidor MCP
+  ↓ resultado
+Host do agente
+  ↓ function_call_output
+Responses API
+  ↓
+Resposta final
+</code></pre>
+<p>Crie <code>src/mcp/agent.ts</code>.</p>
+<h2>Criar os dois clientes</h2>
+<p>O arquivo possui dois clientes com responsabilidades diferentes:</p>
+<pre><code class="language-typescript">const openai = new OpenAI({ apiKey })
+
+const mcpClient = new Client({
+  name: &#39;parnaioca-agent&#39;,
+  version: &#39;1.0.0&#39;
+})
+</code></pre>
+<ul>
+<li><code>openai</code>: envia inputs e recebe decisões do modelo;</li>
+<li><code>mcpClient</code>: descobre e executa capacidades MCP.</li>
+</ul>
+<h2>Converter a definição MCP</h2>
+<pre><code class="language-typescript">function toOpenAITool(
+  tool: McpTool
+): OpenAI.Responses.FunctionTool {
+  return {
+    type: &#39;function&#39;,
+    name: tool.name,
+    description:
+      tool.description ?? &#39;Ferramenta fornecida pelo servidor MCP&#39;,
+    parameters: tool.inputSchema,
+    strict: false
+  }
+}
+</code></pre>
+<p>MCP fornece nome, descrição e schema. A Responses API precisa receber essas
+informações como uma function tool.</p>
+<p>Use <code>strict: false</code> porque o schema veio de um servidor externo e não estamos
+garantindo que ele siga todas as exigências do modo estrito da OpenAI.</p>
+<h2>Descobrir dinamicamente</h2>
+<pre><code class="language-typescript">await mcpClient.connect(transport)
+
+const { tools: mcpTools } =
+  await mcpClient.listTools()
+
+const tools = mcpTools.map(toOpenAITool)
+</code></pre>
+<p>Esse é o ganho central: o host não escreve manualmente a definição de
+<code>find_guest</code>.</p>
+<h2>Deixar o modelo escolher</h2>
+<pre><code class="language-typescript">const response = await openai.responses.create({
+  model,
+  instructions: `
+    Você é o assistente da Pousada Parnaioca.
+    Use as ferramentas disponíveis quando precisar
+    consultar dados da pousada.
+    Não invente informações.
+  `,
+  input,
+  tools
+})
+</code></pre>
+<p>O modelo pode devolver um <code>function_call</code>, mas ele não sabe que existe
+<code>stdio</code>, processo filho ou <code>callTool()</code>.</p>
+<h2>Encaminhar a solicitação ao MCP</h2>
+<pre><code class="language-typescript">const result = await mcpClient.callTool({
+  name: toolCall.name,
+  arguments: JSON.parse(
+    toolCall.arguments
+  ) as Record&lt;string, unknown&gt;
+})
+</code></pre>
+<p>Aqui o host atua como ponte. O nome e os argumentos vieram do modelo, mas a
+execução ocorreu no servidor MCP.</p>
+<h2>Devolver o resultado ao modelo</h2>
+<pre><code class="language-typescript">input.push({
+  type: &#39;function_call_output&#39;,
+  call_id: toolCall.call_id,
+  output: JSON.stringify(result)
+})
+</code></pre>
+<p><code>call_id</code> associa o resultado à solicitação original do modelo.</p>
+<p>O agent loop continua necessário porque a primeira resposta solicita a
+ferramenta e a segunda produz o texto final.</p>
+<h2>Executar</h2>
+<pre><code class="language-bash">npm run mcp:agent
+</code></pre>
+<h2>Resultado validado</h2>
+<pre><code class="language-text">RODADA 1
+MCP TOOL CALL { name: &#39;find_guest&#39;, arguments: &#39;{&quot;name&quot;:&quot;João&quot;}&#39; }
+MCP TOOL RESULT { ... }
+
+RODADA 2
+
+RESPOSTA FINAL
+Sim. João Silva está cadastrado, e o e-mail dele é
+joao.silva@example.com.
+</code></pre>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>Quem escolheu <code>find_guest</code>?</li>
+<li>Quem executou <code>find_guest</code>?</li>
+<li>O modelo teve acesso direto ao JSON de hóspedes?</li>
+<li>Para que serve <code>listTools()</code>?</li>
+<li>Para que serve <code>callTool()</code>?</li>
+<li>Por que aconteceram duas rodadas?</li>
+<li>O que <code>call_id</code> associa?</li>
+<li>Se uma nova tool for registrada no servidor, onde a descrição dela será
+escrita no agente?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>O modelo escolheu entre as tools apresentadas.</li>
+<li>O servidor MCP executou a regra de negócio.</li>
+<li>O modelo recebeu apenas o resultado devolvido pelo host.</li>
+<li><code>listTools()</code> descobre capacidades e schemas.</li>
+<li><code>callTool()</code> solicita ao servidor a execução.</li>
+<li>Uma rodada solicitou a ferramenta; outra redigiu a resposta.</li>
+<li><code>call_id</code> liga o output à chamada solicitada.</li>
+<li>O agente descobre a nova definição dinamicamente.</li>
+</ul>
+<hr>
+<h1>Bloco 7 - O mesmo MCP por Streamable HTTP</h1>
+<p><strong>Tempo:</strong> 15 minutos<br><strong>Formato:</strong> [DEMONSTRAR]</p>
+<p>O objetivo deste bloco não é ensinar deploy. É provar que as mesmas
+capacidades podem ser transportadas pela rede.</p>
+<h2>Servidor HTTP</h2>
+<p>Crie <code>src/mcp/http-server.ts</code>:</p>
+<pre><code class="language-typescript">import { createMcpExpressApp } from &#39;@modelcontextprotocol/express&#39;
+import { toNodeHandler } from &#39;@modelcontextprotocol/node&#39;
+import { createMcpHandler } from &#39;@modelcontextprotocol/server&#39;
+import { createParnaiocaMcpServer } from &#39;./create-server.js&#39;
+
+const port = 8001
+const app = createMcpExpressApp()
+
+const mcpHandler = createMcpHandler(
+  createParnaiocaMcpServer
+)
+
+const nodeHandler = toNodeHandler(mcpHandler)
+
+app.all(&#39;/mcp&#39;, async (request, response) =&gt; {
+  await nodeHandler(
+    request,
+    response,
+    request.body
+  )
+})
+
+app.listen(port, &#39;127.0.0.1&#39;, () =&gt; {
+  console.log(
+    `Servidor MCP HTTP iniciado em http://127.0.0.1:${port}/mcp`
+  )
+})
+</code></pre>
+<h3>Por que passar <code>request.body</code>?</h3>
+<p><code>createMcpExpressApp()</code> já instala o parser JSON. Quando a requisição chega
+ao adaptador Node, o stream original já foi consumido pelo Express.</p>
+<p>Por isso passamos o corpo previamente convertido como terceiro argumento:</p>
+<pre><code class="language-typescript">await nodeHandler(request, response, request.body)
+</code></pre>
+<p>Sem isso, o teste realizado durante a preparação retornou:</p>
+<pre><code class="language-text">Parse error: Invalid JSON
+</code></pre>
+<h2>Cliente HTTP</h2>
+<p>Crie <code>src/mcp/http-client.ts</code>:</p>
+<pre><code class="language-typescript">import {
+  Client,
+  StreamableHTTPClientTransport
+} from &#39;@modelcontextprotocol/client&#39;
+
+const client = new Client({
+  name: &#39;parnaioca-http-client&#39;,
+  version: &#39;1.0.0&#39;
+})
+
+const transport = new StreamableHTTPClientTransport(
+  new URL(&#39;http://127.0.0.1:8001/mcp&#39;)
+)
+</code></pre>
+<p>Depois de conectar, <code>listTools()</code> e <code>callTool()</code> são iguais aos usados com
+<code>stdio</code>. O transporte mudou, mas o protocolo e as capacidades permaneceram.</p>
+<h2>Executar em dois terminais</h2>
+<p>Terminal 1:</p>
+<pre><code class="language-bash">npm run mcp:http-server
+</code></pre>
+<p>Terminal 2:</p>
+<pre><code class="language-bash">npm run mcp:http-client
+</code></pre>
+<h2>Resultado esperado</h2>
+<pre><code class="language-text">Conectando ao servidor MCP por HTTP...
+
+TOOLS DISPONÍVEIS
+find_guest
+
+RESULTADO DE find_guest
+João Silva
+
+Conexão HTTP encerrada
+</code></pre>
+<h2>Comparativo</h2>
+<table>
+<thead>
+<tr>
+<th>Aspecto</th>
+<th><code>stdio</code></th>
+<th>Streamable HTTP</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Servidor iniciado pelo cliente</td>
+<td>Normalmente sim</td>
+<td>Normalmente não</td>
+</tr>
+<tr>
+<td>Mesmo computador</td>
+<td>Normalmente sim</td>
+<td>Não é obrigatório</td>
+</tr>
+<tr>
+<td>Endpoint de rede</td>
+<td>Não</td>
+<td>Sim</td>
+</tr>
+<tr>
+<td>Publicável online</td>
+<td>Não diretamente</td>
+<td>Sim</td>
+</tr>
+<tr>
+<td>Precisa pensar em autenticação de rede</td>
+<td>Menos frequente</td>
+<td>Obrigatoriamente</td>
+</tr>
+<tr>
+<td>Tools e resources mudam</td>
+<td>Não</td>
+<td>Não</td>
+</tr>
+</tbody></table>
+<hr>
+<h1>Bloco 8 - Localhost não significa internet</h1>
+<p><strong>Tempo:</strong> 10 minutos<br><strong>Formato:</strong> [EXPLICAR]</p>
+<p>O endpoint usado na demonstração é:</p>
+<pre><code class="language-text">http://127.0.0.1:8001/mcp
+</code></pre>
+<p>Ele usa HTTP, mas somente programas executados na própria máquina conseguem
+acessá-lo.</p>
+<p>Depois de publicar o serviço, a URL poderia ser:</p>
+<pre><code class="language-text">https://mcp.parnaioca.com/mcp
+</code></pre>
+<p>Para isso, a aplicação Node seria implantada em um servidor comum. Não é
+necessário trocar as tools ou resources.</p>
+<h2>Requisitos mínimos para exposição online</h2>
+<ul>
+<li>HTTPS;</li>
+<li>autenticação dos clientes;</li>
+<li>autorização por tool e resource;</li>
+<li>validação de host e origem;</li>
+<li>proteção contra DNS rebinding;</li>
+<li>rate limiting;</li>
+<li>logs e auditoria;</li>
+<li>isolamento entre usuários ou empresas;</li>
+<li>gerenciamento seguro de credenciais.</li>
+</ul>
+<p>Não apresente um bearer token fixo como solução de produção. Ele pode
+ser usado em uma demonstração para visualizar o cabeçalho, mas servidores MCP
+remotos reais devem adotar um fluxo de identidade e autorização adequado.</p>
+<h2>MCP remoto e OpenAI</h2>
+<p>Um serviço hospedado pela OpenAI não consegue acessar o <code>localhost</code> do aluno.
+Para que a plataforma se conecte diretamente a um servidor MCP remoto, ele
+precisa estar disponível em uma URL alcançável pela internet e devidamente
+protegida.</p>
+<p>Nesta aula, nossa aplicação Node continua sendo o host e usa o cliente MCP.
+Isso permite estudar todo o fluxo sem adicionar deploy, DNS ou conta em um
+provedor de nuvem.</p>
+<hr>
+<h1>Bloco 9 - Onde entram frameworks de agentes</h1>
+<p><strong>Tempo:</strong> 5 minutos<br><strong>Formato:</strong> [EXPLICAR]</p>
+<p>O curso construiu o loop manualmente para tornar visíveis:</p>
+<ul>
+<li>mensagens enviadas ao modelo;</li>
+<li>escolhas de ferramentas;</li>
+<li>execução das tools;</li>
+<li>associação por <code>call_id</code>;</li>
+<li>limites de rodadas;</li>
+<li>memória;</li>
+<li>permissões;</li>
+<li>aprovação humana;</li>
+<li>RAG;</li>
+<li>MCP.</li>
+</ul>
+<p>Frameworks podem fornecer abstrações para parte desse trabalho, como loops,
+tracing, handoffs, memória e integração de ferramentas. Eles não eliminam a
+necessidade de entender segurança, schemas, estado e efeitos das ferramentas.</p>
+<p>Para preservar o tempo da turma, mostre apenas um exemplo montado ou a
+arquitetura. Não migre todo o projeto para outro framework durante a aula.</p>
+<hr>
+<h1>Bloco 10 - Demonstração final com OpenAI Agents SDK</h1>
+<p><strong>Tempo:</strong> 10 minutos<br><strong>Formato:</strong> [DEMONSTRAR]</p>
+<p>Este é o último conteúdo da aula. O arquivo deve estar pronto antes da
+explicação. Os alunos não precisam digitá-lo junto com o professor.</p>
+<p>O objetivo é mostrar que existem frameworks com boa parte da infraestrutura
+de agentes pronta. Não substitua o código manual do curso: coloque as duas
+implementações lado a lado.</p>
+<h2>Framework de agentes</h2>
+<p>Um framework de agentes é uma camada acima do cliente da API. Ele organiza
+componentes recorrentes de aplicações agentic, como:</p>
+<ul>
+<li>agent loop;</li>
+<li>execução e retorno de tools;</li>
+<li>integração com MCP;</li>
+<li>sessões;</li>
+<li>guardrails;</li>
+<li>aprovação humana;</li>
+<li>handoffs entre agentes;</li>
+<li>tracing.</li>
+</ul>
+<p>Compare:</p>
+<pre><code class="language-text">Pacote openai
+  └─ cliente da API
+       └─ nossa aplicação implementa o agent loop
+
+Pacote @openai/agents
+  └─ abstrações de Agent e Runner
+       └─ o framework implementa o agent loop
+</code></pre>
+<h2>Arquivo deixado para estudo</h2>
+<p>O exemplo está em:</p>
+<pre><code class="language-text">src/frameworks/agents-sdk.ts
+</code></pre>
+<p>Instalação utilizada:</p>
+<pre><code class="language-bash">npm install @openai/agents
+</code></pre>
+<h2>Código da demonstração</h2>
+<pre><code class="language-typescript">import &#39;dotenv/config&#39;
+import {
+  Agent,
+  MCPServerStdio,
+  run
+} from &#39;@openai/agents&#39;
+
+const model = process.env.OPENAI_MODEL || &#39;gpt-5.6-luna&#39;
+
+const mcpServer = new MCPServerStdio({
+  name: &#39;Parnaioca MCP&#39;,
+  command: &#39;npx&#39;,
+  args: [
+    &#39;tsx&#39;,
+    &#39;src/mcp/server.ts&#39;
+  ],
+  cacheToolsList: true
+})
+
+try {
+  await mcpServer.connect()
+
+  const agent = new Agent({
+    name: &#39;Assistente Parnaioca&#39;,
+    instructions: `
+      Você é o assistente da Pousada Parnaioca.
+
+      Use as ferramentas disponíveis quando precisar
+      consultar os dados da pousada.
+
+      Não invente informações.
+    `,
+    model,
+    mcpServers: [
+      mcpServer
+    ]
+  })
+
+  const result = await run(
+    agent,
+    &#39;O João está cadastrado? Qual é o e-mail dele?&#39;
+  )
+
+  console.log(&#39;RESPOSTA FINAL&#39;)
+  console.log(result.finalOutput)
+} finally {
+  await mcpServer.close()
+}
+</code></pre>
+<h2>Executar</h2>
+<pre><code class="language-bash">npm run framework:agents
+</code></pre>
+<h2>Como apresentar em dez minutos</h2>
+<ol>
+<li>Abra <code>src/mcp/agent.ts</code>, que possui nossa implementação manual.</li>
+<li>Relembre <code>listTools()</code>, conversão dos schemas, o <code>for</code> das rodadas,
+<code>callTool()</code> e <code>function_call_output</code>.</li>
+<li>Abra <code>src/frameworks/agents-sdk.ts</code> ao lado.</li>
+<li>Mostre que <code>Agent</code> recebe instruções, modelo e servidores MCP.</li>
+<li>Mostre que <code>run()</code> substitui nosso agent loop explícito.</li>
+<li>Execute a mesma pergunta e compare a resposta.</li>
+<li>Encerre explicando que o mecanismo continua existindo, mas foi encapsulado.</li>
+</ol>
+<h2>O que o Agents SDK fez por nós</h2>
+<ul>
+<li>conectou as tools MCP ao agente;</li>
+<li>descobriu as tools do servidor;</li>
+<li>apresentou os schemas ao modelo;</li>
+<li>recebeu a solicitação de tool;</li>
+<li>executou a tool MCP;</li>
+<li>devolveu o resultado ao modelo;</li>
+<li>repetiu o loop até obter a resposta final.</li>
+</ul>
+<p>O <code>cacheToolsList: true</code> evita repetir a descoberta das tools durante os runs
+dessa demonstração. Ele só deve ser usado enquanto a lista de tools for
+estável.</p>
+<h2>O que o framework não resolve automaticamente</h2>
+<ul>
+<li>autenticação da aplicação;</li>
+<li>autorização das operações;</li>
+<li>regras de negócio;</li>
+<li>segurança do servidor MCP;</li>
+<li>qualidade dos dados;</li>
+<li>veracidade das respostas;</li>
+<li>controle de custos.</li>
+</ul>
+<p>Guardrails ajudam a validar o fluxo, mas não substituem a autorização.</p>
+<h2>Recursos que devem ser somente citados</h2>
+<ul>
+<li><strong>Handoffs:</strong> transferem a conversa para um agente especialista.</li>
+<li><strong>Sessions:</strong> ajudam a manter o contexto entre execuções.</li>
+<li><strong>Human in the loop:</strong> interrompe o run para aprovação.</li>
+<li><strong>Guardrails:</strong> validam inputs, outputs e chamadas de tools.</li>
+<li><strong>Tracing:</strong> registra as etapas internas do run para inspeção.</li>
+</ul>
+<p>Não implemente esses recursos nesta aula. O projeto manual já demonstrou os
+conceitos centrais sem esconder o funcionamento.</p>
+<h2>Perguntas rápidas para a turma</h2>
+<ol>
+<li>O framework eliminou o agent loop ou apenas o encapsulou?</li>
+<li>Quem continua executando <code>find_guest</code>?</li>
+<li>O framework tornou a tool automaticamente autorizada?</li>
+<li>Por que foi importante construir o loop manualmente antes?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>O loop foi encapsulado dentro de <code>run()</code>.</li>
+<li>O servidor MCP continua executando <code>find_guest</code>.</li>
+<li>Permissões ainda precisam ser aplicadas pelo sistema.</li>
+<li>Agora os alunos sabem o que o framework está abstraindo e conseguem depurar
+o fluxo com mais consciência.</li>
+</ul>
+<h2>Frase de encerramento</h2>
+<blockquote>
+<p>Framework não remove a complexidade do sistema; ele oferece abstrações
+prontas para a complexidade que se repete.</p>
+</blockquote>
+<hr>
+<h1>Bloco 11 - Exemplo montado de integração com API</h1>
+<p><strong>Tempo:</strong> 5 minutos<br><strong>Formato:</strong> [DEMONSTRAR]</p>
+<p>Este exemplo existe para tornar explícito o item <strong>integração com APIs</strong> da
+ementa. Os alunos não precisam escrevê-lo durante a aula.</p>
+<p>Até agora, as tools acessaram os arrays importados diretamente. Em uma
+aplicação real, a implementação da tool também pode chamar uma API externa.</p>
+<p>O exemplo está em:</p>
+<pre><code class="language-text">src/examples/api-tools.ts
+</code></pre>
+<h2>Função usada como corpo de uma tool</h2>
+<pre><code class="language-typescript">async function listBedroomsFromApi(): Promise&lt;Bedroom[]&gt; {
+  console.log(&#39;TOOL listBedroomsFromApi EXECUTADA&#39;)
+
+  const response = await fetch(
+    &#39;http://localhost:8000/bedrooms&#39;
+  )
+
+  if (!response.ok) {
+    throw new Error(
+      `A API respondeu com HTTP ${response.status}`
+    )
+  }
+
+  const body = await response.json() as BedroomsResponse
+
+  return body.data
+}
+</code></pre>
+<p>A função foi executada diretamente para que a demonstração não consuma
+outra chamada ao modelo. Ela poderia ser associada a uma function tool ou
+registrada como uma tool MCP sem mudar o acesso HTTP.</p>
+<h2>Executar</h2>
+<p>Terminal 1:</p>
+<pre><code class="language-bash">npm run dev
+</code></pre>
+<p>Terminal 2:</p>
+<pre><code class="language-bash">npm run example:api
+</code></pre>
+<h2>Fluxo</h2>
+<pre><code class="language-text">Tool JavaScript
+  -&gt; fetch(&quot;http://localhost:8000/bedrooms&quot;)
+  -&gt; rota Express
+  -&gt; dados JSON
+  -&gt; resposta HTTP
+  -&gt; resultado da tool
+</code></pre>
+<p>Neste exemplo, cliente e API estão na mesma máquina. A URL poderia apontar
+para qualquer API autorizada e acessível pela aplicação.</p>
+<h2>Pontos para explicar</h2>
+<ul>
+<li>O modelo não executa <code>fetch()</code>.</li>
+<li>A tool controla a URL, o método e os dados enviados.</li>
+<li>O status HTTP deve ser validado.</li>
+<li>Autenticação da API deve ficar na aplicação, não no prompt.</li>
+<li>A resposta da API ainda precisa ser validada antes de ser confiada.</li>
+<li>Uma API externa pode falhar, demorar ou limitar requisições.</li>
+</ul>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>O modelo conhece a URL da API obrigatoriamente?</li>
+<li>Onde deveria ficar um token de acesso da API?</li>
+<li>Um HTTP <code>200</code> garante que o formato recebido está correto?</li>
+<li>Quem decide quais campos da resposta chegam ao modelo?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>A tool pode esconder completamente a URL e os detalhes do serviço.</li>
+<li>A credencial pertence ao ambiente seguro da aplicação.</li>
+<li>O corpo ainda precisa ser validado.</li>
+<li>A aplicação pode filtrar o resultado antes de devolvê-lo ao agente.</li>
+</ul>
+<hr>
+<h1>Bloco 12 - Exemplo montado de integração com banco</h1>
+<p><strong>Tempo:</strong> 5 minutos<br><strong>Formato:</strong> [DEMONSTRAR]</p>
+<p>Este exemplo torna explícito o item <strong>integração com banco de dados</strong> sem
+introduzir setup de Docker, servidor, ORM ou migrations.</p>
+<p>O exemplo usa o SQLite incluído no Node.js 24:</p>
+<pre><code class="language-typescript">import { DatabaseSync } from &#39;node:sqlite&#39;
+
+const database = new DatabaseSync(&#39;:memory:&#39;)
+</code></pre>
+<p><code>&#39;:memory:&#39;</code> significa que o banco existe apenas na memória do processo. Ele
+é descartado quando o script termina.</p>
+<p>O arquivo completo está em:</p>
+<pre><code class="language-text">src/examples/database-tools.ts
+</code></pre>
+<h2>O que o arquivo faz</h2>
+<ol>
+<li>Cria as tabelas <code>guests</code>, <code>bedrooms</code> e <code>reservations</code>.</li>
+<li>Popula as tabelas usando os mesmos JSONs do projeto.</li>
+<li>Prepara uma consulta SQL com <code>JOIN</code>.</li>
+<li>Busca João e suas reservas.</li>
+<li>Fecha o banco ao terminar.</li>
+</ol>
+<h2>Função usada como corpo de uma tool</h2>
+<pre><code class="language-typescript">function findGuestReservationsInDatabase(
+  name: string
+) {
+  const statement = database.prepare(`
+    SELECT
+      guests.name AS guest,
+      guests.email,
+      reservations.id AS reservation,
+      bedrooms.name AS bedroom,
+      reservations.checkin_at AS checkinAt,
+      reservations.checkout_at AS checkoutAt,
+      reservations.status
+    FROM guests
+    LEFT JOIN reservations
+      ON reservations.guest_id = guests.id
+    LEFT JOIN bedrooms
+      ON bedrooms.id = reservations.bedroom_id
+    WHERE LOWER(guests.name) LIKE LOWER(?)
+    ORDER BY reservations.checkin_at
+  `)
+
+  return statement.all(`%${name}%`)
+}
+</code></pre>
+<p>O valor pesquisado é enviado como parâmetro <code>?</code>. Não monte SQL concatenando
+diretamente argumentos produzidos pelo modelo.</p>
+<h2>Executar</h2>
+<pre><code class="language-bash">npm run example:database
+</code></pre>
+<h2>Fluxo</h2>
+<pre><code class="language-text">Tool JavaScript
+  -&gt; consulta SQL parametrizada
+  -&gt; SQLite em memória
+  -&gt; linhas da consulta
+  -&gt; resultado da tool
+</code></pre>
+<h2>Onde entraria um banco real</h2>
+<p>Em produção, a função poderia usar PostgreSQL, MySQL, SQL Server, MongoDB
+ou outro serviço. A mudança principal estaria na camada que consulta os dados:</p>
+<pre><code class="language-text">findGuestReservationsInDatabase
+  -&gt; driver ou ORM
+  -&gt; conexão configurada
+  -&gt; banco persistente
+</code></pre>
+<p>O contrato oferecido ao agente pode permanecer igual mesmo quando a fonte dos
+dados muda.</p>
+<h2>Banco operacional e banco vetorial</h2>
+<p>Reforce a diferença:</p>
+<pre><code class="language-text">SQLite/PostgreSQL operacional
+  -&gt; hóspedes, reservas e quartos
+
+Vector Store
+  -&gt; chunks, embeddings e documentos
+</code></pre>
+<p>Uma aplicação real pode utilizar os dois.</p>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>O banco em memória preserva dados depois que o script termina?</li>
+<li>O modelo recebe acesso livre para escrever SQL?</li>
+<li>Por que a consulta usa <code>?</code>?</li>
+<li>Trocar SQLite por PostgreSQL obrigaria mudar a descrição da tool?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ul>
+<li>Não; este banco é recriado em cada execução.</li>
+<li>Não; a aplicação oferece operações controladas.</li>
+<li>O placeholder permite separar o comando SQL do valor recebido.</li>
+<li>O contrato pode permanecer, mesmo que a implementação seja substituída.</li>
+</ul>
+<hr>
+<h1>Bloco 13 - Chatbot, workflow e agente</h1>
+<p><strong>Tempo:</strong> 3 minutos<br><strong>Formato:</strong> [EXPLICAR]</p>
+<table>
+<thead>
+<tr>
+<th>Tipo</th>
+<th>Característica principal</th>
+<th>Exemplo na pousada</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Chatbot</td>
+<td>Mantém uma conversa e produz respostas</td>
+<td>Responder uma pergunta geral</td>
+</tr>
+<tr>
+<td>Workflow</td>
+<td>Executa uma sequência previamente definida</td>
+<td>Sempre consultar reserva e depois enviar e-mail</td>
+</tr>
+<tr>
+<td>Agente</td>
+<td>Decide dinamicamente quais passos e tools usar</td>
+<td>Decidir entre dados, RAG ou nenhuma ferramenta</td>
+</tr>
+</tbody></table>
+<p>Um chatbot pode possuir tools e um agente pode conversar. Os nomes descrevem
+principalmente a arquitetura e o grau de decisão, não apenas a interface de
+chat.</p>
+<hr>
+<h1>Bloco 14 - Consolidação da arquitetura do curso</h1>
+<p><strong>Tempo:</strong> 2 minutos<br><strong>Formato:</strong> [EXPLICAR]</p>
+<p>Use este diagrama para fechar todo o curso:</p>
+<pre><code class="language-text">Usuário
+  -&gt; API Express
+      -&gt; validação com Zod
+      -&gt; autenticação e autorização
+      -&gt; histórico e estado em memória
+      -&gt; agent loop
+          -&gt; Responses API / LLM
+          -&gt; function tools
+              -&gt; arrays JSON
+              -&gt; API REST
+              -&gt; banco operacional
+          -&gt; file_search
+              -&gt; vector stores
+              -&gt; chunks e embeddings
+          -&gt; MCP Client
+              -&gt; MCP Server
+                  -&gt; tools e resources
+          -&gt; aprovação humana
+      -&gt; resposta para o usuário
+</code></pre>
+<p>O OpenAI Agents SDK apresentado no bloco anterior pode encapsular parte do
+agent loop e das integrações, mas as regras de negócio, permissões e fontes de
+dados continuam sendo responsabilidade da aplicação.</p>
+<hr>
+<h1>Roteiro de testes da Aula 7</h1>
+<h2>1. Validar TypeScript</h2>
+<pre><code class="language-bash">npm run typecheck
+</code></pre>
+<h2>2. Testar <code>rag:answer</code></h2>
+<pre><code class="language-bash">npm run rag:answer -- \
+  &quot;Qual é a senha do Wi-Fi da Pousada Parnaioca?&quot;
+</code></pre>
+<p>Confirmar:</p>
+<ul>
+<li><code>response.output_text</code> responde com base nos documentos;</li>
+<li>o output completo contém <code>file_search_call</code>;</li>
+<li><code>queries</code> apresenta as formulações usadas na busca;</li>
+<li><code>results</code> apresenta os chunks recuperados.</li>
+</ul>
+<h2>3. Testar RAG no agente principal</h2>
+<p>Com <code>npm run dev</code> em execução, repita os testes do Bloco 0B e confirme:</p>
+<ul>
+<li>hóspede pesquisa apenas o store público;</li>
+<li>funcionário pesquisa os stores público e interno;</li>
+<li>perguntas de reserva usam function tools;</li>
+<li>perguntas documentais usam <code>file_search</code>;</li>
+<li>o log <code>FILE SEARCH</code> mostra queries, arquivo, score e texto.</li>
+</ul>
+<h2>4. Testar servidor e cliente <code>stdio</code></h2>
+<pre><code class="language-bash">npm run mcp:client
+</code></pre>
+<p>Confirmar:</p>
+<ul>
+<li>servidor iniciado como processo filho;</li>
+<li><code>find_guest</code> aparece em <code>listTools()</code>;</li>
+<li>João é encontrado;</li>
+<li>tool inexistente produz erro controlado;</li>
+<li><code>bedrooms-catalog</code> aparece em <code>listResources()</code>;</li>
+<li>o resource devolve o catálogo.</li>
+</ul>
+<h2>5. Testar o agente com MCP</h2>
+<pre><code class="language-bash">npm run mcp:agent
+</code></pre>
+<p>Confirmar:</p>
+<ul>
+<li>rodada 1 produz <code>find_guest</code>;</li>
+<li>o host executa <code>mcpClient.callTool()</code>;</li>
+<li>rodada 2 produz a resposta final;</li>
+<li>a resposta usa somente o resultado da tool.</li>
+</ul>
+<h2>6. Testar Streamable HTTP</h2>
+<p>Terminal 1:</p>
+<pre><code class="language-bash">npm run mcp:http-server
+</code></pre>
+<p>Terminal 2:</p>
+<pre><code class="language-bash">npm run mcp:http-client
+</code></pre>
+<p>Confirmar:</p>
+<ul>
+<li>conexão em <code>http://127.0.0.1:8001/mcp</code>;</li>
+<li>descoberta da mesma tool;</li>
+<li>mesmo resultado para João;</li>
+<li>encerramento limpo do cliente.</li>
+</ul>
+<h2>7. Validar build</h2>
+<pre><code class="language-bash">npm run build
+</code></pre>
+<h2>8. Demonstrar o framework</h2>
+<pre><code class="language-bash">npm run framework:agents
+</code></pre>
+<p>Confirmar:</p>
+<ul>
+<li>o servidor MCP é iniciado;</li>
+<li>o Agents SDK encontra <code>find_guest</code>;</li>
+<li>a resposta informa o cadastro e o e-mail de João;</li>
+<li>não existe agent loop explícito no arquivo da demonstração.</li>
+</ul>
+<h2>9. Demonstrar integração com API</h2>
+<p>Com a API executando em outro terminal:</p>
+<pre><code class="language-bash">npm run example:api
+</code></pre>
+<p>Confirmar:</p>
+<ul>
+<li><code>fetch()</code> consulta <code>GET /bedrooms</code>;</li>
+<li>o status HTTP é verificado;</li>
+<li>os quartos são exibidos sem acesso direto aos arrays pelo exemplo.</li>
+</ul>
+<h2>10. Demonstrar integração com banco</h2>
+<pre><code class="language-bash">npm run example:database
+</code></pre>
+<p>Confirmar:</p>
+<ul>
+<li>SQLite foi criado somente em memória;</li>
+<li>os JSONs foram usados para popular as tabelas;</li>
+<li>a consulta usa parâmetro;</li>
+<li>o <code>JOIN</code> devolve hóspede, reserva e quarto;</li>
+<li>nenhum servidor ou Docker foi instalado.</li>
+</ul>
+<hr>
+<h1>Erros comuns</h1>
+<h2><code>OPENAI_PUBLIC_VECTOR_STORE_ID não foi configurado</code></h2>
+<p>Execute a ingestão somente se ainda não houver uma base válida. Caso ela já
+exista, copie o ID correto para o <code>.env</code> e evite criar stores duplicados.</p>
+<h2>A resposta apareceu, mas não vejo os chunks recuperados</h2>
+<p>Confira se a requisição possui:</p>
+<pre><code class="language-typescript">include: [
+  &#39;file_search_call.results&#39;
+]
+</code></pre>
+<h2>O hóspede encontrou informações internas</h2>
+<p>Não envie <code>OPENAI_INTERNAL_VECTOR_STORE_ID</code> para um perfil <code>guest</code>. Instrução
+de prompt não substitui a seleção segura dos stores na aplicação.</p>
+<h2><code>Tool ... not found</code></h2>
+<p>O cliente chamou uma tool que não foi registrada. Use <code>listTools()</code> para
+inspecionar os nomes anunciados.</p>
+<h2>O cliente para antes de listar resources</h2>
+<p>Uma chamada proposital a uma tool inexistente ficou fora de um <code>try/catch</code>.
+Trate o erro esperado para continuar a demonstração.</p>
+<h2>Texto de log quebra o servidor <code>stdio</code></h2>
+<p>Logs do servidor foram enviados para <code>stdout</code>. Durante essa demonstração,
+use <code>console.error</code> no processo MCP servido por <code>stdio</code>.</p>
+<h2><code>Parse error: Invalid JSON</code> no HTTP</h2>
+<p>O Express já consumiu o corpo. Passe <code>request.body</code> como terceiro argumento
+de <code>nodeHandler</code>.</p>
+<h2><code>ECONNREFUSED</code> no cliente HTTP</h2>
+<p>O servidor HTTP não foi iniciado, foi encerrado ou está em outra porta.</p>
+<h2>A URL funciona localmente, mas não na OpenAI</h2>
+<p><code>127.0.0.1</code> e <code>localhost</code> apontam para a máquina de quem executa o cliente.
+Eles não são endereços públicos.</p>
+<hr>
+<h1>Fechamento da aula</h1>
+<p>Escreva no quadro:</p>
+<pre><code class="language-text">MCP padroniza como capacidades são descobertas e utilizadas.
+Ele não decide permissões e não executa o agent loop por nós.
+</code></pre>
+<p>Peça aos alunos que descrevam o fluxo completo sem olhar o código:</p>
+<ol>
+<li>O cliente conecta ao servidor MCP.</li>
+<li>O cliente descobre as tools.</li>
+<li>O host converte as definições para a Responses API.</li>
+<li>O modelo solicita uma tool.</li>
+<li>O host encaminha a solicitação ao servidor MCP.</li>
+<li>O servidor executa e devolve o resultado.</li>
+<li>O host devolve o resultado ao modelo.</li>
+<li>O modelo produz a resposta final.</li>
+</ol>
+<h2>Pergunta final</h2>
+<blockquote>
+<p>Se o servidor MCP estiver hospedado em outra empresa, quem continua sendo
+responsável por decidir se o usuário pode executar uma ferramenta sensível?</p>
+</blockquote>
+<p>Resposta esperada: tanto o host deve limitar o que oferece ao modelo quanto o
+servidor deve validar a identidade e a permissão antes da execução. Não se
+deve confiar apenas no prompt ou no cliente.</p>
+<h2>Checklist do professor</h2>
+<ul>
+<li><input disabled="" type="checkbox"> Executou <code>npm run rag:answer</code> antes de iniciar MCP.</li>
+<li><input disabled="" type="checkbox"> Diferenciou retrieval isolado de resposta gerada com RAG.</li>
+<li><input disabled="" type="checkbox"> Explicou <code>file_search_call</code>, <code>queries</code> e <code>results</code>.</li>
+<li><input disabled="" type="checkbox"> Integrou <code>file_search</code> ao agent loop principal.</li>
+<li><input disabled="" type="checkbox"> Demonstrou a separação entre stores público e interno.</li>
+<li><input disabled="" type="checkbox"> Comparou function tools locais com a tool hospedada <code>file_search</code>.</li>
+<li><input disabled="" type="checkbox"> Explicou host, cliente, servidor e transport.</li>
+<li><input disabled="" type="checkbox"> Diferenciou tool de resource.</li>
+<li><input disabled="" type="checkbox"> Executou o cliente <code>stdio</code>.</li>
+<li><input disabled="" type="checkbox"> Mostrou descoberta por <code>listTools()</code> e <code>listResources()</code>.</li>
+<li><input disabled="" type="checkbox"> Executou o agente usando uma tool MCP.</li>
+<li><input disabled="" type="checkbox"> Explicou quem escolhe e quem executa a tool.</li>
+<li><input disabled="" type="checkbox"> Demonstrou Streamable HTTP.</li>
+<li><input disabled="" type="checkbox"> Diferenciou HTTP local de servidor publicado online.</li>
+<li><input disabled="" type="checkbox"> Explicou os requisitos de segurança para produção.</li>
+<li><input disabled="" type="checkbox"> Citou o papel dos frameworks sem iniciar uma migração longa.</li>
+<li><input disabled="" type="checkbox"> Executou rapidamente o exemplo do OpenAI Agents SDK.</li>
+<li><input disabled="" type="checkbox"> Demonstrou uma tool consumindo a API REST.</li>
+<li><input disabled="" type="checkbox"> Demonstrou uma tool consultando SQLite em memória.</li>
+<li><input disabled="" type="checkbox"> Diferenciou chatbot, workflow e agente.</li>
+<li><input disabled="" type="checkbox"> Encerrou com o diagrama da arquitetura completa.</li>
+</ul>
+
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <button class="back-top" id="back-top" title="Voltar ao topo" aria-label="Voltar ao topo">↑</button>
+
+  <footer>
+    Pousada Parnaioca · Curso de Agentes de IA com JavaScript · Prof. Vitor Esteves
+  </footer>
+
+  <script>
+    (function () {
+      var root = document.documentElement
+      var body = document.body
+      var content = document.getElementById('content')
+      var nav = document.getElementById('nav')
+      var search = document.getElementById('search')
+      var quickLinks = document.getElementById('quick-links')
+      var progress = document.getElementById('progress')
+      var backTop = document.getElementById('back-top')
+      var themeButton = document.getElementById('theme-button')
+      var menuButton = document.getElementById('menu-button')
+      var overlay = document.getElementById('overlay')
+
+      function slugify(text) {
+        return text
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+      }
+
+      var usedIds = new Map()
+      var headings = Array.from(content.querySelectorAll('h1, h2'))
+
+      headings.forEach(function (heading) {
+        var base = slugify(heading.textContent) || 'secao'
+        var count = usedIds.get(base) || 0
+        usedIds.set(base, count + 1)
+        heading.id = count ? base + '-' + (count + 1) : base
+      })
+
+      Array.from(content.querySelectorAll('table')).forEach(function (table) {
+        var wrap = document.createElement('div')
+        wrap.className = 'table-wrap'
+        table.parentNode.insertBefore(wrap, table)
+        wrap.appendChild(table)
+      })
+
+      Array.from(content.querySelectorAll('pre')).forEach(function (pre) {
+        var code = pre.querySelector('code')
+        if (!code) return
+
+        var languageClass = Array.from(code.classList).find(function (name) {
+          return name.indexOf('language-') === 0
+        })
+        var language = languageClass
+          ? languageClass.replace('language-', '')
+          : 'código'
+
+        var wrapper = document.createElement('div')
+        wrapper.className = 'code-block'
+
+        var header = document.createElement('div')
+        header.className = 'code-head'
+
+        var label = document.createElement('span')
+        label.className = 'code-lang'
+        label.textContent = language
+
+        var button = document.createElement('button')
+        button.className = 'copy-button'
+        button.type = 'button'
+        button.textContent = 'Copiar'
+        button.addEventListener('click', async function () {
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(code.textContent)
+            } else {
+              var copyArea = document.createElement('textarea')
+              copyArea.value = code.textContent
+              copyArea.setAttribute('readonly', '')
+              copyArea.style.position = 'fixed'
+              copyArea.style.opacity = '0'
+              document.body.appendChild(copyArea)
+              copyArea.select()
+              document.execCommand('copy')
+              copyArea.remove()
+            }
+
+            button.textContent = 'Copiado!'
+          } catch {
+            button.textContent = 'Não copiou'
+          }
+
+          window.setTimeout(function () {
+            button.textContent = 'Copiar'
+          }, 1400)
+        })
+
+        header.append(label, button)
+        pre.parentNode.insertBefore(wrapper, pre)
+        wrapper.append(header, pre)
+      })
+
+      var groups = []
+      var currentGroup = null
+
+      headings.slice(1).forEach(function (heading) {
+        if (heading.tagName === 'H1') {
+          currentGroup = {
+            heading: heading,
+            children: []
+          }
+          groups.push(currentGroup)
+        } else if (currentGroup) {
+          currentGroup.children.push(heading)
+        }
+      })
+
+      function makeLink(heading, className) {
+        var link = document.createElement('a')
+        link.href = '#' + heading.id
+        link.textContent = heading.textContent
+        link.className = className
+        link.dataset.target = heading.id
+        link.addEventListener('click', function () {
+          body.classList.remove('menu-open')
+        })
+        return link
+      }
+
+      groups.forEach(function (group, index) {
+        var details = document.createElement('details')
+        details.className = 'nav-group'
+        details.open = index < 2
+
+        var summary = document.createElement('summary')
+        summary.appendChild(makeLink(group.heading, 'nav-main'))
+        details.appendChild(summary)
+
+        group.children.forEach(function (heading) {
+          details.appendChild(makeLink(heading, 'nav-sub'))
+        })
+
+        nav.appendChild(details)
+      })
+
+      var quickLabels = ["Bloco 0A - Do retrieval para uma resposta com file_search","Bloco 0B - Integrar RAG ao agente principal","Primeira hora do cronograma regular - Interação e mercado","Bloco 1 - O problema resolvido pelo MCP","Bloco 2 - Instalação dos pacotes","Bloco 3 - Criar o servidor MCP uma única vez","Bloco 4 - Servir MCP por stdio","Bloco 5 - Criar o cliente MCP local","Bloco 6 - Integrar MCP ao agente"]
+      var quickTargets = headings
+        .slice(1)
+        .filter(function (heading) { return heading.tagName === 'H1' })
+        .slice(0, quickLabels.length)
+        .map(function (heading, index) {
+          return [quickLabels[index], heading.id]
+        })
+
+      quickTargets.forEach(function (item) {
+        var target = document.getElementById(item[1])
+        if (!target) return
+        var link = document.createElement('a')
+        link.className = 'quick-link'
+        link.href = '#' + item[1]
+        link.textContent = item[0]
+        quickLinks.appendChild(link)
+      })
+
+      var navLinks = Array.from(nav.querySelectorAll('a'))
+      var observed = headings.slice(1)
+      var observer = new IntersectionObserver(function (entries) {
+        var visible = entries
+          .filter(function (entry) { return entry.isIntersecting })
+          .sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top })
+
+        if (!visible.length) return
+        var id = visible[0].target.id
+
+        navLinks.forEach(function (link) {
+          var active = link.dataset.target === id
+          link.classList.toggle('active', active)
+          if (active) {
+            var details = link.closest('details')
+            if (details) details.open = true
+          }
+        })
+      }, {
+        rootMargin: '-78px 0px -72% 0px',
+        threshold: 0
+      })
+
+      observed.forEach(function (heading) {
+        observer.observe(heading)
+      })
+
+      search.addEventListener('input', function () {
+        var query = search.value
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase()
+          .trim()
+        var matches = 0
+
+        Array.from(nav.querySelectorAll('.nav-group')).forEach(function (group) {
+          var links = Array.from(group.querySelectorAll('a'))
+          var groupMatch = false
+
+          links.forEach(function (link) {
+            var text = link.textContent
+              .normalize('NFD')
+              .replace(/[̀-ͯ]/g, '')
+              .toLowerCase()
+            var match = !query || text.includes(query)
+            link.style.display = match ? '' : 'none'
+            if (match) {
+              groupMatch = true
+              matches++
+            }
+          })
+
+          group.style.display = groupMatch ? '' : 'none'
+          if (query && groupMatch) group.open = true
+        })
+
+        var empty = nav.querySelector('.nav-empty')
+        if (!matches && !empty) {
+          empty = document.createElement('div')
+          empty.className = 'nav-empty'
+          empty.textContent = 'Nenhum tópico encontrado.'
+          nav.appendChild(empty)
+        } else if (matches && empty) {
+          empty.remove()
+        }
+      })
+
+      function updateScroll() {
+        var documentHeight = document.documentElement.scrollHeight - window.innerHeight
+        var ratio = documentHeight > 0 ? window.scrollY / documentHeight : 0
+        progress.style.width = Math.min(100, ratio * 100) + '%'
+        backTop.classList.toggle('visible', window.scrollY > 600)
+      }
+
+      window.addEventListener('scroll', updateScroll, { passive: true })
+      updateScroll()
+
+      backTop.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+
+      function closeMenu() {
+        body.classList.remove('menu-open')
+      }
+
+      menuButton.addEventListener('click', function () {
+        body.classList.toggle('menu-open')
+      })
+      overlay.addEventListener('click', closeMenu)
+
+      var savedTheme = localStorage.getItem('guia-aula-theme')
+      if (savedTheme === 'dark') root.dataset.theme = 'dark'
+
+      themeButton.addEventListener('click', function () {
+        var dark = root.dataset.theme === 'dark'
+        root.dataset.theme = dark ? 'light' : 'dark'
+        localStorage.setItem('guia-aula-theme', dark ? 'light' : 'dark')
+      })
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === '/' && document.activeElement !== search) {
+          event.preventDefault()
+          search.focus()
+          search.select()
+        }
+        if (event.key === 'Escape') {
+          search.value = ''
+          search.dispatchEvent(new Event('input'))
+          search.blur()
+          closeMenu()
+        }
+      })
+    })()
+  </script>
+</body>
+</html>

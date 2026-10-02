@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Guia do professor da Aula 1: Introdução aos LLMs.">
+  <title>Aula 1 — Introdução aos LLMs</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #072f58;
+      --blue: #075ba6;
+      --blue-2: #1382d2;
+      --cyan: #27b9d6;
+      --paper: #f3f7fb;
+      --surface: #ffffff;
+      --surface-2: #f7faff;
+      --ink: #172334;
+      --muted: #5d6b7c;
+      --line: #d8e3ee;
+      --code: #0b1726;
+      --code-bar: #12263c;
+      --code-ink: #e9f2fb;
+      --success: #11734b;
+      --success-bg: #eaf7f0;
+      --warning: #966000;
+      --warning-bg: #fff7e5;
+      --shadow: 0 14px 36px rgba(7, 47, 88, .09);
+      --sidebar: 330px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --paper: #08111d;
+      --surface: #0e1a29;
+      --surface-2: #122235;
+      --ink: #e8f0f8;
+      --muted: #a9b8c8;
+      --line: #26394d;
+      --code: #050b12;
+      --code-bar: #0a1522;
+      --success-bg: #102a22;
+      --warning-bg: #30240f;
+      --shadow: 0 14px 36px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 86px; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 400 15.5px/1.72 Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    a { color: var(--blue); }
+
+    .progress {
+      position: fixed;
+      inset: 0 auto auto 0;
+      z-index: 100;
+      width: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--cyan), #5aa8ff);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      height: 64px;
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+    .topbar-inner {
+      max-width: 1540px;
+      height: 100%;
+      margin: 0 auto;
+      padding: 0 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: white;
+      background: linear-gradient(145deg, var(--navy), var(--blue-2));
+      font-weight: 800;
+      letter-spacing: -.04em;
+      box-shadow: 0 5px 12px rgba(7, 91, 166, .25);
+    }
+    .brand-text { min-width: 0; line-height: 1.2; }
+    .brand-text strong { display: block; color: var(--navy); }
+    [data-theme="dark"] .brand-text strong { color: #a8d8ff; }
+    .brand-text span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .icon-button:hover { background: var(--surface-2); }
+    .menu-button { display: none; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: white;
+      background:
+        radial-gradient(circle at 84% 24%, rgba(39, 185, 214, .34), transparent 24%),
+        linear-gradient(125deg, #062b50 0%, #075b9f 68%, #0f79be 100%);
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      right: -230px;
+      bottom: -360px;
+      border: 70px solid rgba(255, 255, 255, .07);
+      border-radius: 50%;
+    }
+    .hero-inner {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 42px 24px 68px;
+      position: relative;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 11px;
+      border: 1px solid rgba(255, 255, 255, .28);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .1);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      max-width: 940px;
+      margin: 16px 0 10px;
+      font-size: clamp(30px, 4vw, 54px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+      text-wrap: balance;
+    }
+    .hero p { max-width: 860px; margin: 0; color: #dceeff; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+    .chip {
+      padding: 7px 11px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .13);
+      border: 1px solid rgba(255, 255, 255, .17);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .quickbar {
+      max-width: 1540px;
+      margin: -27px auto 0;
+      padding: 0 24px;
+      position: relative;
+      z-index: 3;
+    }
+    .quickbar-inner {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      scrollbar-width: thin;
+    }
+    .quick-link {
+      flex: none;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--ink);
+      background: var(--surface-2);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .quick-link:hover { color: var(--blue); border-color: var(--blue-2); }
+
+    .shell {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(0, 1fr);
+      gap: 26px;
+      align-items: start;
+    }
+    .sidebar {
+      position: sticky;
+      top: 82px;
+      max-height: calc(100vh - 102px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .sidebar-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+    .sidebar-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--navy);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    [data-theme="dark"] .sidebar-title { color: #a8d8ff; }
+    .shortcut { color: var(--muted); font-size: 10px; letter-spacing: 0; }
+    .search {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      outline: none;
+      color: var(--ink);
+      background: var(--surface-2);
+      font-size: 13px;
+    }
+    .search:focus { border-color: var(--blue-2); box-shadow: 0 0 0 3px rgba(19, 130, 210, .12); }
+    .nav { overflow-y: auto; padding: 10px; scrollbar-width: thin; }
+    .nav-group { margin: 2px 0 6px; }
+    .nav-group summary {
+      list-style: none;
+      cursor: pointer;
+      border-radius: 9px;
+    }
+    .nav-group summary::-webkit-details-marker { display: none; }
+    .nav-main {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 9px;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 12.5px;
+      font-weight: 720;
+      line-height: 1.35;
+    }
+    .nav-sub {
+      display: block;
+      margin-left: 12px;
+      padding: 6px 9px 6px 14px;
+      border-left: 1px solid var(--line);
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 11.5px;
+      line-height: 1.35;
+    }
+    .nav a:hover { color: var(--blue); background: var(--surface-2); }
+    .nav a.active {
+      color: var(--blue);
+      background: color-mix(in srgb, var(--blue) 10%, var(--surface));
+      box-shadow: inset 3px 0 0 var(--blue-2);
+    }
+    .nav-empty { padding: 14px; color: var(--muted); font-size: 12px; text-align: center; }
+
+    main {
+      min-width: 0;
+      padding: clamp(24px, 4vw, 56px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    main > h1:first-child { display: none; }
+    main h1, main h2, main h3, main h4 { scroll-margin-top: 86px; }
+    main h1 {
+      margin: 68px 0 22px;
+      padding: 18px 20px;
+      border-radius: 13px;
+      color: white;
+      background: linear-gradient(125deg, var(--navy), var(--blue));
+      font-size: clamp(23px, 3vw, 31px);
+      line-height: 1.25;
+      letter-spacing: -.025em;
+    }
+    main h1:nth-of-type(2) { margin-top: 0; }
+    main h2 {
+      margin: 42px 0 14px;
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--line);
+      color: var(--navy);
+      font-size: 21px;
+      line-height: 1.3;
+    }
+    [data-theme="dark"] main h2 { color: #a8d8ff; }
+    main h3 { margin: 30px 0 11px; font-size: 17px; color: var(--blue); }
+    main h4 { margin: 24px 0 8px; font-size: 15px; }
+    main p { margin: 0 0 15px; }
+    main ul, main ol { margin: 0 0 18px; padding-left: 24px; }
+    main li { margin: 5px 0; }
+    main strong { color: color-mix(in srgb, var(--ink) 88%, var(--blue)); }
+    main blockquote {
+      margin: 20px 0;
+      padding: 16px 19px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--blue-2);
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--ink);
+    }
+    main blockquote p:last-child { margin-bottom: 0; }
+    main hr { margin: 48px 0; border: 0; border-top: 1px solid var(--line); }
+    main :not(pre) > code {
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      color: var(--blue);
+      background: var(--surface-2);
+      font: 500 .88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .table-wrap { max-width: 100%; overflow-x: auto; margin: 18px 0 24px; }
+    main table { width: 100%; border-collapse: collapse; min-width: 560px; font-size: 13px; }
+    main th, main td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    main th { color: var(--navy); background: var(--surface-2); }
+    [data-theme="dark"] main th { color: #a8d8ff; }
+
+    .code-block {
+      margin: 18px 0 23px;
+      overflow: hidden;
+      border: 1px solid #21374d;
+      border-radius: 12px;
+      background: var(--code);
+      box-shadow: 0 7px 18px rgba(4, 16, 29, .18);
+    }
+    .code-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 10px 7px 15px;
+      color: #9fb6cb;
+      background: var(--code-bar);
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+    .code-lang::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: #3ea6ff;
+    }
+    .copy-button {
+      padding: 4px 9px;
+      border: 1px solid #34516c;
+      border-radius: 6px;
+      color: #d7e8f8;
+      background: transparent;
+      cursor: pointer;
+      font-size: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .copy-button:hover { background: #1a334c; }
+    .code-block pre { margin: 0; padding: 17px 19px; overflow-x: auto; }
+    .code-block code {
+      color: var(--code-ink);
+      font: 400 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      tab-size: 2;
+    }
+
+    .back-top {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 20;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 12px;
+      color: white;
+      background: var(--blue);
+      box-shadow: 0 8px 22px rgba(7, 91, 166, .28);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: .2s ease;
+    }
+    .back-top.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .overlay { display: none; }
+
+    footer {
+      padding: 25px;
+      color: #c7d7e7;
+      background: var(--navy);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      :root { --sidebar: 320px; }
+      .menu-button { display: grid; }
+      .shell { display: block; }
+      .sidebar {
+        position: fixed;
+        inset: 64px auto 0 0;
+        z-index: 45;
+        width: min(88vw, var(--sidebar));
+        max-height: none;
+        border-radius: 0 16px 16px 0;
+        transform: translateX(-105%);
+        transition: transform .23s ease;
+      }
+      body.menu-open .sidebar { transform: translateX(0); }
+      .overlay {
+        position: fixed;
+        inset: 64px 0 0;
+        z-index: 40;
+        background: rgba(2, 10, 19, .48);
+      }
+      body.menu-open .overlay { display: block; }
+    }
+
+    @media (max-width: 600px) {
+      .topbar-inner, .hero-inner, .quickbar, .shell { padding-left: 14px; padding-right: 14px; }
+      .brand-text span { display: none; }
+      .hero-inner { padding-top: 30px; padding-bottom: 54px; }
+      .hero h1 { font-size: 31px; }
+      main { padding: 22px 16px 38px; border-radius: 14px; }
+      main h1 { margin-left: -4px; margin-right: -4px; padding: 15px; font-size: 22px; }
+      main h2 { font-size: 19px; }
+      .back-top { right: 14px; bottom: 14px; }
+    }
+
+    @media print {
+      @page { margin: 14mm; }
+      body { background: white; font-size: 10.5pt; }
+      .progress, .topbar, .quickbar, .sidebar, .overlay, .back-top, .copy-button { display: none !important; }
+      .hero { color: #111; background: white; }
+      .hero-inner { max-width: none; padding: 0 0 18px; }
+      .hero p { color: #333; }
+      .eyebrow, .chip { color: #111; border-color: #aaa; background: white; }
+      .shell { display: block; max-width: none; padding: 0; }
+      main { padding: 0; border: 0; box-shadow: none; }
+      main h1 { color: #111; background: #eaf2f9; break-after: avoid; }
+      main h2, main h3 { break-after: avoid; }
+      .code-block, table, blockquote { break-inside: avoid; }
+      .code-block pre { white-space: pre-wrap; }
+      footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button class="icon-button menu-button" id="menu-button" aria-label="Abrir menu">☰</button>
+        <div class="brand-mark">C</div>
+        <div class="brand-text">
+          <strong>COTI Informática</strong>
+          <span>Agentes de IA com JavaScript · Guia do professor</span>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" id="theme-button" title="Alternar tema" aria-label="Alternar tema">◐</button>
+        <button class="icon-button" onclick="window.print()" title="Imprimir" aria-label="Imprimir">⎙</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Aula 01 · guia do professor</span>
+      <h1>Introdução aos LLMs</h1>
+      <p>Primeira chamada, tokens, contexto, alucinações e prompt caching. Material navegável com conceitos, código, testes, perguntas e respostas esperadas.</p>
+      <div class="chips">
+        <span class="chip">LLMs</span>
+        <span class="chip">Responses API</span>
+        <span class="chip">Tokens</span>
+        <span class="chip">Contexto</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="quickbar">
+    <nav class="quickbar-inner" id="quick-links" aria-label="Atalhos principais"></nav>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="sidebar-title">
+          <span>Tópicos da aula</span>
+          <span class="shortcut">pressione /</span>
+        </div>
+        <input class="search" id="search" type="search" placeholder="Buscar tópico..." autocomplete="off">
+      </div>
+      <nav class="nav" id="nav" aria-label="Menu da aula"></nav>
+    </aside>
+
+    <main id="content">
+      <h1>Aula 1 - Introdução aos LLMs</h1>
+<p>Guia do professor para apresentar o projeto tradicional, fazer a primeira chamada ao modelo e discutir geração de respostas, tokens, contexto, alucinações e prompt caching.</p>
+<h2>Como um LLM gera respostas</h2>
+<p>Um LLM aprende padrões estatísticos durante o treinamento. Na geração, recebe o contexto disponível e escolhe sucessivamente os próximos tokens mais adequados. Ele não consulta automaticamente os arquivos do projeto e não funciona como um banco de fatos garantidos.</p>
+<pre><code class="language-text">texto de entrada
+  -&gt; tokenização
+  -&gt; modelo calcula probabilidades
+  -&gt; escolhe o próximo token
+  -&gt; repete até concluir a resposta
+</code></pre>
+<p>O contexto é o conjunto de informações disponíveis naquela chamada. A janela de contexto tem limite, tokens têm custo e uma resposta linguisticamente convincente ainda pode estar incorreta.</p>
+<h2>Preparação</h2>
+<p>Confira o arquivo <code>.env</code>:</p>
+<pre><code class="language-dotenv">OPENAI_API_KEY=sua-chave
+OPENAI_MODEL=gpt-5.6-luna
+</code></pre>
+<p>Instale as dependências e inicie a API:</p>
+<pre><code class="language-bash">npm install
+npm run dev
+</code></pre>
+<p>Use outro terminal para executar as requisições HTTP.</p>
+<h1>Aula 1 - O que é um LLM</h1>
+<h2>1. Conferir o sistema tradicional</h2>
+<pre><code class="language-bash">curl http://localhost:8000/health
+curl http://localhost:8000/guests
+curl http://localhost:8000/reservations
+</code></pre>
+<h3>Pontos para discussão</h3>
+<ul>
+<li>A API responde apenas às operações programadas.</li>
+<li>Os relacionamentos das reservas são populados pela aplicação.</li>
+<li>Ainda não é possível fazer uma pergunta em linguagem natural.</li>
+</ul>
+<h2>2. Primeira chamada isolada</h2>
+<p>No início da aula, crie <code>src/first-call.ts</code> com uma chamada simples e use como pergunta:</p>
+<pre><code class="language-text">O que é a Pousada Parnaioca?
+</code></pre>
+<p>Execute duas vezes:</p>
+<pre><code class="language-bash">npx tsx src/first-call.ts
+</code></pre>
+<h3>Observar</h3>
+<ul>
+<li>As respostas podem ser diferentes.</li>
+<li>O modelo pode afirmar fatos plausíveis que não recebeu do projeto.</li>
+<li>Nenhum JSON ou PDF local foi enviado automaticamente.</li>
+<li>Training não é o mesmo que contexto da requisição.</li>
+<li>Uma alucinação pode parecer convincente e conter alguns fatos verdadeiros.</li>
+</ul>
+<h2>3. Resposta curta e tokens</h2>
+<p>Use como input:</p>
+<pre><code class="language-text">Responda apenas sim ou não: a Pousada Parnaioca possui estacionamento?
+</code></pre>
+<p>Exiba também:</p>
+<pre><code class="language-typescript">console.log(response.usage)
+</code></pre>
+<h3>Observar</h3>
+<ul>
+<li>Uma instrução maior aumenta os tokens de entrada.</li>
+<li>Restringir a resposta reduz os tokens de saída.</li>
+<li>Tokens não correspondem exatamente a palavras.</li>
+<li>Uma resposta curta e objetiva ainda pode estar sem fundamento.</li>
+<li><code>reasoning_tokens</code> pode fazer parte da saída mesmo sem aparecer no texto visível.</li>
+</ul>
+<h2>4. Dados no contexto</h2>
+<p>Envie <code>guests</code> e <code>reservations</code> junto com a pergunta:</p>
+<pre><code class="language-text">O João Silva possui alguma reserva?
+</code></pre>
+<h3>Resultado esperado</h3>
+<ul>
+<li>O modelo encontra <code>reservation-001</code> e <code>reservation-013</code>.</li>
+<li>Ele diferencia os status <code>confirmed</code> e <code>completed</code>.</li>
+<li>Ele apresenta IDs dos quartos, pois os dados de <code>bedrooms</code> não foram enviados.</li>
+<li>O total de tokens de entrada cresce consideravelmente.</li>
+</ul>
+<h3>Prompt caching</h3>
+<p>Execute a mesma chamada duas vezes e compare:</p>
+<pre><code class="language-text">input_tokens_details.cache_write_tokens
+input_tokens_details.cached_tokens
+</code></pre>
+<p>Na primeira execução, um prefixo elegível pode ser gravado. Na segunda, o mesmo prefixo pode ser reutilizado. Cache reduz trabalho repetido, mas não cria memória de conversa.</p>
+<h2>5. Contexto não é memória</h2>
+<p>Faça duas chamadas independentes no mesmo processo:</p>
+<ol>
+<li>Envie os dados e pergunte pelas reservas de João.</li>
+<li>Sem enviar dados, pergunte pelo nome do quarto da próxima reserva.</li>
+</ol>
+<h3>Resultado esperado</h3>
+<p>A segunda chamada não conhece o contexto da primeira apenas porque o mesmo cliente do SDK foi reutilizado.</p>
+<h2>6. Primeira rota de chat</h2>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/chat \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;message&quot;:&quot;Explique em uma frase o que é um LLM.&quot;}&#39;
+</code></pre>
+<p>Pergunta operacional sem dados:</p>
+<pre><code class="language-bash">curl -X POST http://localhost:8000/chat \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;message&quot;:&quot;O João possui alguma reserva na Pousada Parnaioca?&quot;}&#39;
+</code></pre>
+<p>Entrada ausente, antes da validação da Aula 2:</p>
+<pre><code class="language-bash">curl -i -X POST http://localhost:8000/chat \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{}&#39;
+</code></pre>
+<h3>Observar</h3>
+<ul>
+<li>Perguntas gerais podem ser respondidas.</li>
+<li>O modelo não possui acesso automático às reservas.</li>
+<li>Antes da validação, a entrada vazia gera um erro técnico e pode expor stack trace.</li>
+</ul>
+<h1>Fechamento e checklist</h1>
+<ul>
+<li><input disabled="" type="checkbox"> A API tradicional foi comparada com uma pergunta em linguagem natural.</li>
+<li><input disabled="" type="checkbox"> A primeira chamada com Node.js foi executada.</li>
+<li><input disabled="" type="checkbox"> Tokens de entrada, saída e raciocínio foram observados.</li>
+<li><input disabled="" type="checkbox"> Dados locais foram enviados explicitamente como contexto.</li>
+<li><input disabled="" type="checkbox"> Alucinação, contexto, memória e prompt caching foram diferenciados.</li>
+<li><input disabled="" type="checkbox"> A rota <code>POST /chat</code> foi testada.</li>
+</ul>
+<h2>Perguntas para a turma</h2>
+<ol>
+<li>O modelo leu automaticamente os JSONs do projeto?</li>
+<li>Por que duas execuções podem produzir textos diferentes?</li>
+<li>Uma resposta plausível é necessariamente verdadeira?</li>
+<li>Reutilizar o mesmo cliente do SDK cria memória?</li>
+</ol>
+<h2>Respostas esperadas</h2>
+<ol>
+<li>Não. Somente dados enviados na requisição ficam disponíveis.</li>
+<li>A geração é probabilística e pode escolher formulações diferentes.</li>
+<li>Não. O modelo pode alucinar fatos convincentes.</li>
+<li>Não. A aplicação precisa reenviar ou persistir o histórico.</li>
+</ol>
+
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <button class="back-top" id="back-top" title="Voltar ao topo" aria-label="Voltar ao topo">↑</button>
+
+  <footer>
+    Pousada Parnaioca · Curso de Agentes de IA com JavaScript · Prof. Vitor Esteves
+  </footer>
+
+  <script>
+    (function () {
+      var root = document.documentElement
+      var body = document.body
+      var content = document.getElementById('content')
+      var nav = document.getElementById('nav')
+      var search = document.getElementById('search')
+      var quickLinks = document.getElementById('quick-links')
+      var progress = document.getElementById('progress')
+      var backTop = document.getElementById('back-top')
+      var themeButton = document.getElementById('theme-button')
+      var menuButton = document.getElementById('menu-button')
+      var overlay = document.getElementById('overlay')
+
+      function slugify(text) {
+        return text
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+      }
+
+      var usedIds = new Map()
+      var headings = Array.from(content.querySelectorAll('h1, h2'))
+
+      headings.forEach(function (heading) {
+        var base = slugify(heading.textContent) || 'secao'
+        var count = usedIds.get(base) || 0
+        usedIds.set(base, count + 1)
+        heading.id = count ? base + '-' + (count + 1) : base
+      })
+
+      Array.from(content.querySelectorAll('table')).forEach(function (table) {
+        var wrap = document.createElement('div')
+        wrap.className = 'table-wrap'
+        table.parentNode.insertBefore(wrap, table)
+        wrap.appendChild(table)
+      })
+
+      Array.from(content.querySelectorAll('pre')).forEach(function (pre) {
+        var code = pre.querySelector('code')
+        if (!code) return
+
+        var languageClass = Array.from(code.classList).find(function (name) {
+          return name.indexOf('language-') === 0
+        })
+        var language = languageClass
+          ? languageClass.replace('language-', '')
+          : 'código'
+
+        var wrapper = document.createElement('div')
+        wrapper.className = 'code-block'
+
+        var header = document.createElement('div')
+        header.className = 'code-head'
+
+        var label = document.createElement('span')
+        label.className = 'code-lang'
+        label.textContent = language
+
+        var button = document.createElement('button')
+        button.className = 'copy-button'
+        button.type = 'button'
+        button.textContent = 'Copiar'
+        button.addEventListener('click', async function () {
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(code.textContent)
+            } else {
+              var copyArea = document.createElement('textarea')
+              copyArea.value = code.textContent
+              copyArea.setAttribute('readonly', '')
+              copyArea.style.position = 'fixed'
+              copyArea.style.opacity = '0'
+              document.body.appendChild(copyArea)
+              copyArea.select()
+              document.execCommand('copy')
+              copyArea.remove()
+            }
+
+            button.textContent = 'Copiado!'
+          } catch {
+            button.textContent = 'Não copiou'
+          }
+
+          window.setTimeout(function () {
+            button.textContent = 'Copiar'
+          }, 1400)
+        })
+
+        header.append(label, button)
+        pre.parentNode.insertBefore(wrapper, pre)
+        wrapper.append(header, pre)
+      })
+
+      var groups = []
+      var currentGroup = null
+
+      headings.slice(1).forEach(function (heading) {
+        if (heading.tagName === 'H1') {
+          currentGroup = {
+            heading: heading,
+            children: []
+          }
+          groups.push(currentGroup)
+        } else if (currentGroup) {
+          currentGroup.children.push(heading)
+        }
+      })
+
+      function makeLink(heading, className) {
+        var link = document.createElement('a')
+        link.href = '#' + heading.id
+        link.textContent = heading.textContent
+        link.className = className
+        link.dataset.target = heading.id
+        link.addEventListener('click', function () {
+          body.classList.remove('menu-open')
+        })
+        return link
+      }
+
+      groups.forEach(function (group, index) {
+        var details = document.createElement('details')
+        details.className = 'nav-group'
+        details.open = index < 2
+
+        var summary = document.createElement('summary')
+        summary.appendChild(makeLink(group.heading, 'nav-main'))
+        details.appendChild(summary)
+
+        group.children.forEach(function (heading) {
+          details.appendChild(makeLink(heading, 'nav-sub'))
+        })
+
+        nav.appendChild(details)
+      })
+
+      var quickLabels = ["Aula 1 - O que é um LLM","Fechamento e checklist"]
+      var quickTargets = headings
+        .slice(1)
+        .filter(function (heading) { return heading.tagName === 'H1' })
+        .slice(0, quickLabels.length)
+        .map(function (heading, index) {
+          return [quickLabels[index], heading.id]
+        })
+
+      quickTargets.forEach(function (item) {
+        var target = document.getElementById(item[1])
+        if (!target) return
+        var link = document.createElement('a')
+        link.className = 'quick-link'
+        link.href = '#' + item[1]
+        link.textContent = item[0]
+        quickLinks.appendChild(link)
+      })
+
+      var navLinks = Array.from(nav.querySelectorAll('a'))
+      var observed = headings.slice(1)
+      var observer = new IntersectionObserver(function (entries) {
+        var visible = entries
+          .filter(function (entry) { return entry.isIntersecting })
+          .sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top })
+
+        if (!visible.length) return
+        var id = visible[0].target.id
+
+        navLinks.forEach(function (link) {
+          var active = link.dataset.target === id
+          link.classList.toggle('active', active)
+          if (active) {
+            var details = link.closest('details')
+            if (details) details.open = true
+          }
+        })
+      }, {
+        rootMargin: '-78px 0px -72% 0px',
+        threshold: 0
+      })
+
+      observed.forEach(function (heading) {
+        observer.observe(heading)
+      })
+
+      search.addEventListener('input', function () {
+        var query = search.value
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .toLowerCase()
+          .trim()
+        var matches = 0
+
+        Array.from(nav.querySelectorAll('.nav-group')).forEach(function (group) {
+          var links = Array.from(group.querySelectorAll('a'))
+          var groupMatch = false
+
+          links.forEach(function (link) {
+            var text = link.textContent
+              .normalize('NFD')
+              .replace(/[̀-ͯ]/g, '')
+              .toLowerCase()
+            var match = !query || text.includes(query)
+            link.style.display = match ? '' : 'none'
+            if (match) {
+              groupMatch = true
+              matches++
+            }
+          })
+
+          group.style.display = groupMatch ? '' : 'none'
+          if (query && groupMatch) group.open = true
+        })
+
+        var empty = nav.querySelector('.nav-empty')
+        if (!matches && !empty) {
+          empty = document.createElement('div')
+          empty.className = 'nav-empty'
+          empty.textContent = 'Nenhum tópico encontrado.'
+          nav.appendChild(empty)
+        } else if (matches && empty) {
+          empty.remove()
+        }
+      })
+
+      function updateScroll() {
+        var documentHeight = document.documentElement.scrollHeight - window.innerHeight
+        var ratio = documentHeight > 0 ? window.scrollY / documentHeight : 0
+        progress.style.width = Math.min(100, ratio * 100) + '%'
+        backTop.classList.toggle('visible', window.scrollY > 600)
+      }
+
+      window.addEventListener('scroll', updateScroll, { passive: true })
+      updateScroll()
+
+      backTop.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+
+      function closeMenu() {
+        body.classList.remove('menu-open')
+      }
+
+      menuButton.addEventListener('click', function () {
+        body.classList.toggle('menu-open')
+      })
+      overlay.addEventListener('click', closeMenu)
+
+      var savedTheme = localStorage.getItem('guia-aula-theme')
+      if (savedTheme === 'dark') root.dataset.theme = 'dark'
+
+      themeButton.addEventListener('click', function () {
+        var dark = root.dataset.theme === 'dark'
+        root.dataset.theme = dark ? 'light' : 'dark'
+        localStorage.setItem('guia-aula-theme', dark ? 'light' : 'dark')
+      })
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === '/' && document.activeElement !== search) {
+          event.preventDefault()
+          search.focus()
+          search.select()
+        }
+        if (event.key === 'Escape') {
+          search.value = ''
+          search.dispatchEvent(new Event('input'))
+          search.blur()
+          closeMenu()
+        }
+      })
+    })()
+  </script>
+</body>
+</html>

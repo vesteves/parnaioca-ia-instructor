@@ -17,6 +17,7 @@
     "framework:agents": "tsx src/frameworks/agents-sdk.ts",
     "example:api": "tsx src/examples/api-tools.ts",
     "example:database": "tsx src/examples/database-tools.ts",
+    "instructor:html": "node scripts/generate-instructor-html.mjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "prod": "node dist/index.js"
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@types/express": "5.0.3",
     "@types/node": "24.3.0",
+    "marked": "^18.0.14",
     "tsx": "4.20.5",
     "typescript": "5.9.2"
   }
