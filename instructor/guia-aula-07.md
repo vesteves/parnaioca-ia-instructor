@@ -1,4 +1,4 @@
-# Aula real 07 - MCP local, MCP por HTTP e integração com o agente
+# Aula real 07 - RAG integrado, MCP e arquitetura final
 
 ## Visão geral
 
@@ -10,8 +10,17 @@ Esta aula apresenta o Model Context Protocol, primeiro de maneira local com
 `stdio` e depois pela rede com Streamable HTTP. O mesmo servidor MCP será
 usado nos dois transportes.
 
+Antes do MCP, a aula conclui a parte de RAG que ficou pendente no encontro
+anterior: primeiro o `file_search` gera uma resposta com base nos documentos;
+depois ele é incorporado ao agent loop principal.
+
 Ao final da aula, os alunos deverão compreender:
 
+- como o retrieval se transforma em uma resposta fundamentada;
+- como funciona a tool hospedada `file_search`;
+- o significado de `file_search_call`, `queries` e `results`;
+- como o agente decide entre function tools e busca nos documentos;
+- como limitar vector stores conforme o perfil autenticado;
 - qual problema o MCP resolve;
 - as responsabilidades do host, cliente e servidor MCP;
 - a diferença entre tool, resource e transport;
@@ -31,10 +40,14 @@ Ao final da aula, os alunos deverão compreender:
 
 ## O que construir e o que somente demonstrar
 
-Para caber nas duas horas técnicas:
+No cronograma regular, seria necessário selecionar demonstrações para caber
+nas duas horas técnicas. Para a aula extra de três horas, siga o roteiro
+especial apresentado abaixo.
 
 | Parte | Formato |
 | --- | --- |
+| `rag:answer` com `file_search` | [CONSTRUIR] |
+| RAG integrado ao agent loop | [CONSTRUIR] |
 | Conceitos e arquitetura MCP | [EXPLICAR] |
 | Servidor MCP com uma tool e um resource | [CONSTRUIR] |
 | Cliente MCP por `stdio` | [CONSTRUIR] |
@@ -51,6 +64,8 @@ para encontrá-los rapidamente:
 
 | Demonstração | Arquivo | Seção do guia | Comando |
 | --- | --- | --- | --- |
+| RAG produzindo resposta | `src/rag/file-search.ts` | Bloco 0A | `npm run rag:answer` |
+| RAG dentro do agente | `src/tool-calling.ts` | Bloco 0B | `npm run dev` |
 | Framework de agentes | `src/frameworks/agents-sdk.ts` | Bloco 10 | `npm run framework:agents` |
 | Tools consumindo API REST | `src/examples/api-tools.ts` | Bloco 11 | `npm run example:api` |
 | Tools consultando banco | `src/examples/database-tools.ts` | Bloco 12 | `npm run example:database` |
@@ -65,12 +80,592 @@ Agents SDK
   -> arquitetura completa
 ```
 
+## Roteiro especial para a aula gratuita de 3 horas
+
+Como esta aula extra possui três horas e o curso regular já deveria ter sido
+encerrado, use as três horas como tempo técnico:
+
+```text
+00:00 - 00:20  Bloco 0A: rag:answer
+00:20 - 00:45  Bloco 0B: RAG integrado ao agente
+00:45 - 02:15  MCP: servidor, cliente, agente e HTTP
+02:15 - 02:45  Agents SDK, API Tools e Database Tools
+02:45 - 03:00  Arquitetura final, perguntas e margem
+```
+
+Se a conversa inicial com a turma consumir parte do encontro, preserve os
+blocos 0A, 0B e o MCP por `stdio`. Streamable HTTP, frameworks e os exemplos
+de API/banco já estão montados e podem ser demonstrados rapidamente.
+
 ---
 
-# Primeira hora - Interação e mercado
+# Bloco 0A - Do retrieval para uma resposta com `file_search`
+
+**Tempo:** 20 minutos
+**Formato:** [CONSTRUIR] e testar
+
+## Retomada da Aula 6
+
+Na Aula 6, `src/rag/search-documents.ts` executou:
+
+```typescript
+client.vectorStores.search(...)
+```
+
+Esse script realizou apenas retrieval:
+
+```text
+pergunta
+  -> busca vetorial
+  -> chunks relevantes
+```
+
+Ele exibiu arquivo, similaridade e texto dos chunks, mas não pediu para um
+LLM formular a resposta ao hóspede.
+
+Agora abra:
+
+```text
+src/rag/file-search.ts
+```
+
+O comando correspondente no `package.json` é:
+
+```json
+"rag:answer": "tsx src/rag/file-search.ts"
+```
+
+O novo fluxo será:
+
+```text
+pergunta
+  -> Responses API
+  -> file_search
+  -> busca no vector store
+  -> chunks recuperados
+  -> modelo interpreta os chunks
+  -> resposta final
+```
+
+## Etapa 1 - Configuração
+
+O script exige a chave, o modelo e o ID do vector store público:
+
+```typescript
+const apiKey = process.env.OPENAI_API_KEY
+
+const vectorStoreId =
+  process.env.OPENAI_PUBLIC_VECTOR_STORE_ID
+
+const model =
+  process.env.OPENAI_MODEL || 'gpt-5.6-luna'
+```
+
+Os documentos precisam ter sido ingeridos anteriormente com:
+
+```bash
+npm run rag:ingest
+```
+
+Não execute a ingestão novamente se os IDs válidos já estiverem no `.env`.
+
+## Etapa 2 - Receber a pergunta pela linha de comando
+
+```typescript
+const question =
+  process.argv.slice(2).join(' ').trim()
+
+if (!question) {
+  throw new Error('Informe uma pergunta')
+}
+```
+
+O `--` do comando npm separa os argumentos do npm dos argumentos entregues ao
+script:
+
+```bash
+npm run rag:answer -- \
+  "Qual é a senha do Wi-Fi da Pousada Parnaioca?"
+```
+
+## Etapa 3 - Disponibilizar `file_search`
+
+```typescript
+const response = await client.responses.create({
+  model,
+
+  instructions: `
+    Você é o assistente da Pousada Parnaioca.
+
+    Responda perguntas sobre as políticas e os serviços
+    da pousada usando os documentos disponíveis.
+
+    Não invente regras ou informações.
+    Se os documentos não forem suficientes, diga que
+    não encontrou a informação.
+  `,
+
+  input: question,
+
+  tools: [
+    {
+      type: 'file_search',
+      vector_store_ids: [vectorStoreId],
+      max_num_results: 3
+    }
+  ],
+
+  include: [
+    'file_search_call.results'
+  ]
+})
+```
+
+### `tools`
+
+`file_search` é uma tool hospedada: a Responses API executa a pesquisa no
+vector store. Nosso processo não recebe um `function_call` para executar uma
+função JavaScript local.
+
+### `vector_store_ids`
+
+Indica em quais bases a pesquisa pode ocorrer. Neste script isolado,
+disponibilizamos somente a base pública.
+
+### `max_num_results`
+
+Limita quantos resultados podem ser recuperados. Não garante que sempre virão
+três resultados nem que todos possuem relevância suficiente.
+
+### `include`
+
+Solicita que os resultados encontrados sejam incluídos em `response.output`.
+Sem isso, o modelo ainda pode usar `file_search`, mas a inspeção dos chunks
+recuperados fica limitada.
+
+## Etapa 4 - Resposta final e inspeção
+
+```typescript
+console.log('RESPOSTA')
+console.log(response.output_text)
+
+console.log('\nOUTPUT COMPLETO')
+console.dir(response.output, {
+  depth: null
+})
+```
+
+`response.output_text` é a resposta redigida para o usuário.
+
+No output completo, procure um item semelhante a:
+
+```text
+type: file_search_call
+queries: [...]
+results: [...]
+```
+
+## O que significa `file_search_call`?
+
+Pode-se dizer didaticamente que é o registro da chamada feita pelo modelo à
+ferramenta de busca do RAG. De maneira mais precisa:
+
+> `file_search_call` representa a execução da tool hospedada de busca nos
+> arquivos durante a resposta.
+
+Ele não é o texto final e não é um `function_call` que nossa aplicação
+precisa executar.
+
+## O que são `queries`?
+
+Para uma pergunta sobre Wi-Fi, o item pode apresentar algo semelhante a:
+
+```typescript
+queries: [
+  'Qual é a senha do Wi-Fi da Pousada Parnaioca?',
+  'senha Wi-Fi internet wireless Pousada Parnaioca',
+  'Wi-Fi password Pousada Parnaioca'
+]
+```
+
+Essas queries são formulações usadas para pesquisar o vector store. Elas
+podem incluir:
+
+- a pergunta original;
+- uma reformulação com palavras relacionadas;
+- variações que aumentem a chance de localizar o trecho correto.
+
+Elas não são:
+
+- respostas;
+- chunks;
+- embeddings exibidos em texto;
+- novas perguntas feitas ao usuário.
+
+O fluxo detalhado é:
+
+```text
+input do usuário
+  -> modelo decide pesquisar
+  -> file_search produz/reformula queries
+  -> busca semântica no vector store
+  -> results contêm os trechos recuperados
+  -> modelo usa os trechos
+  -> output_text contém a resposta
+```
+
+## Comparativo dos dois scripts
+
+| Script | Responsabilidade |
+| --- | --- |
+| `search-documents.ts` | Faz retrieval diretamente e exibe chunks |
+| `file-search.ts` | Disponibiliza `file_search` ao modelo e produz resposta |
+
+O primeiro é melhor para estudar a recuperação isoladamente. O segundo
+mostra o fluxo de RAG completo, mas ainda fora do agente principal.
+
+## Testes
+
+### FAQ
+
+```bash
+npm run rag:answer -- \
+  "Qual é a senha do Wi-Fi da Pousada Parnaioca?"
+```
+
+### Cancelamento
+
+```bash
+npm run rag:answer -- \
+  "Se eu cancelar faltando cinco dias, qual será a multa?"
+```
+
+### Informação ausente
+
+```bash
+npm run rag:answer -- \
+  "Qual é a marca do gerador elétrico da pousada?"
+```
+
+Para a terceira pergunta, a resposta deve reconhecer que a informação não
+foi encontrada, em vez de inventar.
+
+## Perguntas para a turma
+
+1. Qual é a diferença entre `results` e `output_text`?
+2. Quem executa a busca: nosso script ou a tool hospedada?
+3. `queries` são os chunks encontrados?
+4. `file_search` retreina o modelo?
+5. Por que inspecionar o output completo se já temos `output_text`?
+
+## Respostas esperadas
+
+- `results` contém evidências recuperadas; `output_text` é a resposta gerada.
+- A Responses API executa a tool hospedada configurada pelo script.
+- Não. Queries são formulações de busca.
+- Não. Os documentos entram como contexto recuperado.
+- Para observar consultas, fontes, trechos e diagnosticar respostas.
+
+---
+
+# Bloco 0B - Integrar RAG ao agente principal
+
+**Tempo:** 25 minutos
+**Formato:** [CONSTRUIR] e testar
+
+O script anterior sempre recebe `file_search` e serve somente para perguntas
+documentais. O agente principal precisa decidir entre:
+
+```text
+responder diretamente
+usar uma function tool para dados estruturados
+usar file_search para documentos
+encadear mais de uma capacidade
+```
+
+Abra `src/tool-calling.ts`.
+
+## Etapa 1 - Ler os dois vector stores
+
+```typescript
+const publicVectorStoreId =
+  getRequiredEnvironmentVariable(
+    'OPENAI_PUBLIC_VECTOR_STORE_ID'
+  )
+
+const internalVectorStoreId =
+  getRequiredEnvironmentVariable(
+    'OPENAI_INTERNAL_VECTOR_STORE_ID'
+  )
+```
+
+O agente precisa dos dois IDs porque o store permitido depende do perfil
+autenticado.
+
+## Etapa 2 - Separar as function tools
+
+Renomeie a coleção existente:
+
+```typescript
+const functionTools: OpenAI.Responses.Tool[] = [
+  // findGuest, findReservationsByGuestId,
+  // getBedroomById e requestReservationCancellation
+]
+```
+
+Isso diferencia as funções executadas localmente da tool hospedada
+`file_search`.
+
+## Etapa 3 - Escolher stores por perfil
+
+```typescript
+function getVectorStoreIdsForRole(
+  role: UserRole
+): string[] {
+  if (role === 'guest') {
+    return [
+      publicVectorStoreId
+    ]
+  }
+
+  return [
+    publicVectorStoreId,
+    internalVectorStoreId
+  ]
+}
+```
+
+Regra da aula:
+
+| Perfil | Stores permitidos |
+| --- | --- |
+| `guest` | Público |
+| `employee` | Público e interno |
+| `manager` | Público e interno |
+
+O modelo não escolhe permissão. A aplicação decide quais IDs entram na
+requisição.
+
+## Etapa 4 - Combinar functions e `file_search`
+
+```typescript
+function getToolsForRole(
+  role: UserRole
+): OpenAI.Responses.Tool[] {
+  const allowedFunctionTools =
+    functionTools.filter(tool => {
+      if (tool.type !== 'function') {
+        return false
+      }
+
+      return isToolAllowed(role, tool.name)
+    })
+
+  const fileSearchTool:
+    OpenAI.Responses.FileSearchTool = {
+    type: 'file_search',
+    vector_store_ids:
+      getVectorStoreIdsForRole(role),
+    max_num_results: 3
+  }
+
+  return [
+    ...allowedFunctionTools,
+    fileSearchTool
+  ]
+}
+```
+
+Agora a mesma lista `tools` combina:
+
+- function tools locais;
+- file search hospedado.
+
+## Etapa 5 - Orientar a escolha
+
+```typescript
+instructions: `
+  Você é o assistente da Pousada Parnaioca.
+
+  Use as function tools quando precisar consultar dados
+  estruturados, como hóspedes, reservas e quartos.
+
+  Use file_search quando precisar consultar políticas,
+  regras, passeios, perguntas frequentes ou procedimentos
+  documentados da pousada.
+
+  Não invente informações sobre hóspedes, reservas,
+  políticas ou procedimentos.
+
+  Quando os documentos não contiverem a informação,
+  diga que ela não foi encontrada.
+`
+```
+
+Prompt orienta a escolha, mas a segurança continua no filtro de tools e
+stores feito pela aplicação.
+
+## Etapa 6 - Incluir e observar os resultados
+
+Na requisição:
+
+```typescript
+include: [
+  'file_search_call.results'
+]
+```
+
+No processamento de `response.output`:
+
+```typescript
+if (item.type === 'file_search_call') {
+  console.log('FILE SEARCH', {
+    queries: item.queries,
+
+    results: item.results?.map(result => ({
+      filename: result.filename,
+      score: result.score,
+      text: result.text
+    }))
+  })
+
+  continue
+}
+```
+
+## Por que não criamos `function_call_output`?
+
+Para nossas function tools:
+
+```text
+modelo solicita function_call
+  -> aplicação executa JavaScript
+  -> aplicação envia function_call_output
+  -> nova rodada
+```
+
+Para `file_search` hospedado:
+
+```text
+modelo usa file_search
+  -> Responses API executa a busca
+  -> resultados ficam disponíveis ao modelo
+  -> resposta pode ser concluída na mesma requisição
+```
+
+Por isso `hasFunctionCall` continua controlando somente chamadas das funções
+que nossa aplicação precisa executar.
+
+## Testes pela API
+
+Inicie:
+
+```bash
+npm run dev
+```
+
+### Hóspede consultando documento público
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer guest-demo-token" \
+  -d '{
+    "conversationId":"rag-publico-001",
+    "message":"Qual é a senha do Wi-Fi da pousada?"
+  }'
+```
+
+Resultado esperado: resposta baseada no FAQ e log `FILE SEARCH`.
+
+### Hóspede tentando consultar documento interno
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer guest-demo-token" \
+  -d '{
+    "conversationId":"rag-interno-guest-001",
+    "message":"Qual é o procedimento interno em uma emergência?"
+  }'
+```
+
+Resultado esperado: o manual interno não fica disponível e o agente não
+deve revelar o procedimento.
+
+### Funcionário consultando documento interno
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer employee-demo-token" \
+  -d '{
+    "conversationId":"rag-interno-employee-001",
+    "message":"Qual é o procedimento interno em uma emergência?"
+  }'
+```
+
+Resultado esperado: resposta fundamentada no manual de funcionários.
+
+### O agente escolhendo dados estruturados
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer employee-demo-token" \
+  -d '{
+    "conversationId":"rag-tools-001",
+    "message":"João possui uma reserva confirmada?"
+  }'
+```
+
+Resultado esperado: function tools, não documentos, fornecem os dados da
+reserva.
+
+## Perguntas para a turma
+
+1. O modelo decide quais vector stores um hóspede pode pesquisar?
+2. Por que separar os stores público e interno?
+3. `file_search_call` exige que nosso código execute uma função?
+4. Uma pergunta pode exigir function tool e RAG?
+5. O log de queries permite entender melhor uma recuperação ruim?
+6. Prompt sozinho impediria acesso ao manual interno?
+
+## Respostas esperadas
+
+- A aplicação escolhe os IDs conforme o perfil.
+- A separação reduz o risco de recuperação indevida.
+- Não. A tool é executada pela Responses API.
+- Sim. Exemplo: combinar a reserva de João com a política de cancelamento.
+- Sim. As queries e os chunks ajudam a diagnosticar o retrieval.
+- Não. O store interno deve ser omitido da requisição não autorizada.
+
+## Transição para MCP
+
+Até aqui, todas as capacidades foram conectadas diretamente ao projeto:
+
+```text
+agent loop
+  -> function tools locais
+  -> file_search hospedado
+```
+
+A próxima pergunta é:
+
+> Como disponibilizar ferramentas e contextos usando um protocolo que outros
+> agentes e aplicações também consigam compreender?
+
+Essa pergunta introduz o MCP.
+
+---
+
+# Primeira hora do cronograma regular - Interação e mercado
 
 Este período permanece livre para conversa entre os alunos e discussão
 sobre o mercado de TI.
+
+Na aula gratuita de reposição, esta seção é opcional. O roteiro especial do
+início do documento usa as três horas para concluir o conteúdo técnico.
 
 Se houver oportunidade de conectar a conversa ao conteúdo, use:
 
@@ -1343,7 +1938,31 @@ dados continuam sendo responsabilidade da aplicação.
 npm run typecheck
 ```
 
-## 2. Testar servidor e cliente `stdio`
+## 2. Testar `rag:answer`
+
+```bash
+npm run rag:answer -- \
+  "Qual é a senha do Wi-Fi da Pousada Parnaioca?"
+```
+
+Confirmar:
+
+- `response.output_text` responde com base nos documentos;
+- o output completo contém `file_search_call`;
+- `queries` apresenta as formulações usadas na busca;
+- `results` apresenta os chunks recuperados.
+
+## 3. Testar RAG no agente principal
+
+Com `npm run dev` em execução, repita os testes do Bloco 0B e confirme:
+
+- hóspede pesquisa apenas o store público;
+- funcionário pesquisa os stores público e interno;
+- perguntas de reserva usam function tools;
+- perguntas documentais usam `file_search`;
+- o log `FILE SEARCH` mostra queries, arquivo, score e texto.
+
+## 4. Testar servidor e cliente `stdio`
 
 ```bash
 npm run mcp:client
@@ -1358,7 +1977,7 @@ Confirmar:
 - `bedrooms-catalog` aparece em `listResources()`;
 - o resource devolve o catálogo.
 
-## 3. Testar o agente com MCP
+## 5. Testar o agente com MCP
 
 ```bash
 npm run mcp:agent
@@ -1371,7 +1990,7 @@ Confirmar:
 - rodada 2 produz a resposta final;
 - a resposta usa somente o resultado da tool.
 
-## 4. Testar Streamable HTTP
+## 6. Testar Streamable HTTP
 
 Terminal 1:
 
@@ -1392,13 +2011,13 @@ Confirmar:
 - mesmo resultado para João;
 - encerramento limpo do cliente.
 
-## 5. Validar build
+## 7. Validar build
 
 ```bash
 npm run build
 ```
 
-## 6. Demonstrar o framework
+## 8. Demonstrar o framework
 
 ```bash
 npm run framework:agents
@@ -1411,7 +2030,7 @@ Confirmar:
 - a resposta informa o cadastro e o e-mail de João;
 - não existe agent loop explícito no arquivo da demonstração.
 
-## 7. Demonstrar integração com API
+## 9. Demonstrar integração com API
 
 Com a API executando em outro terminal:
 
@@ -1425,7 +2044,7 @@ Confirmar:
 - o status HTTP é verificado;
 - os quartos são exibidos sem acesso direto aos arrays pelo exemplo.
 
-## 8. Demonstrar integração com banco
+## 10. Demonstrar integração com banco
 
 ```bash
 npm run example:database
@@ -1442,6 +2061,26 @@ Confirmar:
 ---
 
 # Erros comuns
+
+## `OPENAI_PUBLIC_VECTOR_STORE_ID não foi configurado`
+
+Execute a ingestão somente se ainda não houver uma base válida. Caso ela já
+exista, copie o ID correto para o `.env` e evite criar stores duplicados.
+
+## A resposta apareceu, mas não vejo os chunks recuperados
+
+Confira se a requisição possui:
+
+```typescript
+include: [
+  'file_search_call.results'
+]
+```
+
+## O hóspede encontrou informações internas
+
+Não envie `OPENAI_INTERNAL_VECTOR_STORE_ID` para um perfil `guest`. Instrução
+de prompt não substitui a seleção segura dos stores na aplicação.
 
 ## `Tool ... not found`
 
@@ -1505,6 +2144,12 @@ deve confiar apenas no prompt ou no cliente.
 
 ## Checklist do professor
 
+- [ ] Executou `npm run rag:answer` antes de iniciar MCP.
+- [ ] Diferenciou retrieval isolado de resposta gerada com RAG.
+- [ ] Explicou `file_search_call`, `queries` e `results`.
+- [ ] Integrou `file_search` ao agent loop principal.
+- [ ] Demonstrou a separação entre stores público e interno.
+- [ ] Comparou function tools locais com a tool hospedada `file_search`.
 - [ ] Explicou host, cliente, servidor e transport.
 - [ ] Diferenciou tool de resource.
 - [ ] Executou o cliente `stdio`.
